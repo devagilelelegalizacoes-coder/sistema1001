@@ -1,0 +1,87 @@
+name: sistema1001
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sistema1001
+      POSTGRES_USER: sistema1001
+      POSTGRES_PASSWORD: ${DB_SENHA:-sistema1001_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sistema1001 -d sistema1001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://sistema1001:${DB_SENHA}@db:5432/sistema1001
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-sistema1001_dev_jwt_secret}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_USUARIO: ${SMTP_USUARIO:-}
+      SMTP_SENHA: ${SMTP_SENHA:-}
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    # aplica as migrações antes de subir a API
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://sistema1001:${DB_SENHA}@db:5432/sistema1001
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-sistema1001_dev_jwt_secret}
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    command: celery -A app.tarefas worker -l info --concurrency=2
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      WEBHOOK_URL: https://${N8N_HOST:-localhost}/
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USUARIO:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_SENHA:-sistema1001_dev}
+    volumes:
+      - n8ndata:/home/node/.n8n
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMINIO: ${DOMINIO:-localhost}
+      N8N_HOST: ${N8N_HOST:-n8n.localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [api, n8n]
+
+volumes:
+  pgdata:
+  redisdata:
+  n8ndata:
+  caddydata:
+  caddyconfig:

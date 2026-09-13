@@ -1,0 +1,19 @@
+# HTTPS automático. Troque os domínios e o Caddy cuida do certificado sozinho.
+# Para rodar local, use :80 no lugar do domínio.
+
+{$DOMINIO:localhost} {
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy api:8000
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+	encode gzip
+}
+
+{$N8N_HOST:n8n.localhost} {
+	reverse_proxy n8n:5678
+}

@@ -1,0 +1,89 @@
+:root{
+  --bg:#F3F1EA; --surface:#fff; --surface-2:#EAE6DA; --ink:#1E2733; --muted:#647184;
+  --accent:#2B5D8C; --accent-soft:#DCE7F0; --line:#D9D3C4;
+  --ok:#2C7A4B; --ok-soft:#DFF0E4; --warn:#96700A; --warn-soft:#FBEDC9;
+  --danger:#B4402A; --danger-soft:#F7DFD8; --parado:#3B4148; --parado-soft:#E3E1DD;
+  --sombra:0 1px 2px rgba(30,39,51,.06), 0 8px 24px -12px rgba(30,39,51,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#12161C; --surface:#1A2029; --surface-2:#222A34; --ink:#E8EAEE; --muted:#94A0AF;
+    --accent:#6BA3D6; --accent-soft:#22384C; --line:#2C3440;
+    --ok:#6FCB93; --ok-soft:#1D3A28; --warn:#E4B84A; --warn-soft:#3D3115;
+    --danger:#E38168; --danger-soft:#3E241D; --parado:#B7BEC6; --parado-soft:#2A2E33;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+*{box-sizing:border-box}
+/* sem isto, o display:flex de .login vence o atributo hidden e a tela não some */
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px}
+.mono,.placa,.num{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+
+.topo{background:var(--ink);color:#F5F3EC;padding:18px 20px}
+.topo-in{max-width:1180px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.marca{display:flex;align-items:baseline;gap:12px}
+.tag{font-family:ui-monospace,monospace;font-weight:600;font-size:13px;letter-spacing:.14em;
+  background:var(--accent);color:#fff;padding:3px 8px;border-radius:3px}
+.topo h1{font-size:19px;margin:0;font-weight:700}
+.usuario{font-size:13px;color:#B9C0CC}
+.usuario button{margin-left:10px;background:none;border:1px solid #3A4453;color:#B9C0CC;
+  border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+
+.app{max-width:1180px;margin:0 auto;padding:26px 20px 64px}
+
+.login{background:var(--surface);border-radius:12px;padding:26px;max-width:380px;margin:40px auto;
+  box-shadow:var(--sombra);display:flex;flex-direction:column;gap:12px}
+.login h2{margin:0 0 6px;font-size:19px}
+.login label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+.login input{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px;
+  font-size:15px;color:var(--ink);font-family:inherit}
+.botao{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px;
+  font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.botao:hover{filter:brightness(1.07)}
+.erro{color:var(--danger);font-size:13px;margin:0}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border-radius:10px;padding:14px 16px;box-shadow:var(--sombra)}
+.stat b{display:block;font-family:ui-monospace,monospace;font-size:26px;line-height:1}
+.stat span{display:block;font-size:12px;color:var(--muted);margin-top:4px}
+.stat.no_prazo b,.stat.concluido b{color:var(--ok)}
+.stat.prazo_proximo b{color:var(--warn)}
+.stat.atrasado b,.stat.exigencia b{color:var(--danger)}
+.stat.parado b{color:var(--parado)}
+
+.barra{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:20px;
+  padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:500}
+.chip.ativo{background:var(--accent);color:#fff;border-color:var(--accent)}
+.busca{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:20px;
+  padding:6px 14px;font-size:13px;font-family:inherit;min-width:180px}
+
+.tabela-wrap{overflow-x:auto;border-radius:10px;box-shadow:var(--sombra)}
+table{width:100%;border-collapse:collapse;background:var(--surface);font-size:13.5px;min-width:720px}
+thead th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  padding:10px 12px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+th.num,td.num{text-align:right}
+.placa{font-weight:600;letter-spacing:.03em}
+.sem-placa{color:var(--muted);font-style:italic}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill i{width:6px;height:6px;border-radius:50%;display:block}
+.pill.no_prazo,.pill.concluido{background:var(--ok-soft);color:var(--ok)}
+.pill.no_prazo i,.pill.concluido i{background:var(--ok)}
+.pill.prazo_proximo{background:var(--warn-soft);color:var(--warn)}
+.pill.prazo_proximo i{background:var(--warn)}
+.pill.atrasado,.pill.exigencia{background:var(--danger-soft);color:var(--danger)}
+.pill.atrasado i,.pill.exigencia i{background:var(--danger)}
+.pill.parado{background:var(--parado-soft);color:var(--parado)}
+.pill.parado i{background:var(--parado)}
+.tipo{display:inline-block;font-size:10.5px;font-weight:600;text-transform:uppercase;
+  padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--muted)}
+.muted{color:var(--muted)}
+.vazio{background:var(--surface);border-radius:10px;padding:32px;text-align:center;
+  color:var(--muted);font-style:italic;box-shadow:var(--sombra);margin-bottom:14px}

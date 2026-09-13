@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema 1001</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <div class="marca"><span class="tag">1001</span><h1>Controle de Processos</h1></div>
+    <div id="usuario" class="usuario"></div>
+  </div>
+</header>
+
+<main class="app">
+
+  <section id="tela-login" class="login" hidden>
+    <h2>Entrar</h2>
+    <label>E-mail<input id="in-email" type="email" autocomplete="username"></label>
+    <label>Senha<input id="in-senha" type="password" autocomplete="current-password"></label>
+    <p id="erro-login" class="erro" hidden></p>
+    <button id="btn-entrar" class="botao">Entrar</button>
+  </section>
+
+  <section id="tela-app" hidden>
+    <div id="stats" class="stats"></div>
+
+    <div class="barra">
+      <div class="chips" id="filtros"></div>
+      <input id="busca" class="busca" type="search" placeholder="Buscar placa…">
+    </div>
+
+    <div id="vazio" class="vazio" hidden>Nenhum processo com esse filtro.</div>
+
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Placa</th><th>Tipo</th><th>Lote</th><th>Etapa</th>
+            <th>Limite</th><th>Status</th><th class="num">Dias</th>
+          </tr>
+        </thead>
+        <tbody id="linhas"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
