@@ -78,6 +78,7 @@ async function iniciar() {
   await carregar();
   await carregarAvisos();
   await carregarAlertaExigencia();
+  await carregarLotesFormulario();
 }
 
 /* alerta de documentos em exigência — some por conta própria quando não há nenhum */
@@ -190,6 +191,29 @@ $("form-editar-processo").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
+
+async function carregarLotesFormulario() {
+  try {
+    const lotes = await api("/lotes");
+    const sel = $("sel-lote-formulario");
+    sel.innerHTML = lotes.length
+      ? lotes.map((l) => `<option value="${l.id}">${l.nome} (${l.qtd_processos})</option>`).join("")
+      : `<option value="">nenhum lote</option>`;
+  } catch { /* quem não é admin/operador ainda vê a lista de processos normalmente */ }
+}
+
+$("btn-formulario-lote").onclick = async () => {
+  const loteId = $("sel-lote-formulario").value;
+  if (!loteId) { alert("Não há lote selecionado."); return; }
+  const r = await fetch(API + `/lotes/${loteId}/formulario.docx`, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) { alert((await r.json().catch(() => ({}))).detail || "Não foi possível gerar o formulário."); return; }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `formulario_lote_${loteId}.docx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+};
 
 $("btn-exportar").onclick = async () => {
   const r = await fetch(API + "/processos/exportar.xlsx", { headers: { Authorization: "Bearer " + token } });
@@ -470,6 +494,7 @@ $("form-processo").addEventListener("submit", async (e) => {
     });
     fecharModal("modal-processo");
     await carregar();
+    await carregarLotesFormulario();
   } catch (e2) {
     erro.textContent = e2.message; erro.hidden = false;
   }
