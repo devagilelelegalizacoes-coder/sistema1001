@@ -1,5 +1,5 @@
 /* Front mínimo do Sistema 1001. Sem framework: o que ele faz é listar,
-   filtrar e mostrar o status — o resto da regra vive na API. */
+   filtrar, cadastrar e mostrar o status — o resto da regra vive na API. */
 
 const API = window.API_URL || "/api";
 const ROTULO = {
@@ -10,12 +10,26 @@ const TIPOS = [
   ["", "Todos"], ["volante", "Transferência"], ["atpve", "ATPV-e"],
   ["licenciamento", "Licenciamento"], ["avulso", "Avulsos"],
 ];
+// espelha api/app/regras.py ETAPAS — só os rótulos, o cálculo de status é da API
+const ETAPAS = {
+  volante: ["Recebido", "Documentos conferidos", "Débitos levantados", "Formulário preenchido",
+    "Solicitação enviada", "Garagem avisada", "Vistoria confirmada", "Vistoria realizada",
+    "Enviado para emissão", "Exigência aberta", "Faltou / reagendar", "Concluído"],
+  atpve: ["Recebido", "Agendado no DETRAN", "Documento conferido", "Formulário preenchido",
+    "Exigência aberta", "Concluído"],
+  licenciamento: ["Recebido", "Débitos conferidos", "Formulário preenchido",
+    "Exigência aberta", "Concluído"],
+  avulso: ["Recebido", "Em análise", "Em andamento", "Exigência aberta",
+    "Faltou / parado", "Concluído"],
+};
 
 let token = localStorage.getItem("token1001") || "";
+let papelAtual = "";
 let filtroTipo = "";
 let processos = [];
 
 const $ = (id) => document.getElementById(id);
+const brl = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 async function api(caminho, opcoes = {}) {
   const r = await fetch(API + caminho, {
@@ -24,6 +38,7 @@ async function api(caminho, opcoes = {}) {
   });
   if (r.status === 401) { sair(); throw new Error("sessão expirada"); }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "erro " + r.status);
+  if (r.status === 204) return null;
   return r.json();
 }
 
@@ -53,13 +68,31 @@ async function entrar() {
 async function iniciar() {
   let eu;
   try { eu = await api("/auth/eu"); } catch { sair(); return; }
+  papelAtual = eu.papel;
   $("tela-login").hidden = true; $("tela-app").hidden = false;
   $("usuario").innerHTML = `${eu.nome} · ${eu.papel} <button id="btn-sair">sair</button>`;
   $("btn-sair").onclick = sair;
+  // faturamento é só admin — a API também trava isso, isto é só a tela
+  document.querySelectorAll("[data-so-admin]").forEach((el) => (el.hidden = eu.papel !== "admin"));
   renderFiltros();
   await carregar();
+  await carregarAvisos();
 }
 
+/* ---------------- abas ---------------- */
+document.querySelectorAll(".aba").forEach((btn) => {
+  btn.onclick = async () => {
+    if (btn.hidden) return;
+    document.querySelectorAll(".aba").forEach((b) => b.classList.toggle("ativo", b === btn));
+    document.querySelectorAll(".aba-conteudo").forEach((s) => (s.hidden = true));
+    $("aba-" + btn.dataset.aba).hidden = false;
+    if (btn.dataset.aba === "avisos") await carregarAvisos();
+    if (btn.dataset.aba === "notas") { await carregarFaturaveis(); await carregarNotas(); }
+    if (btn.dataset.aba === "relatorios") await carregarRelatorios();
+  };
+});
+
+/* ---------------- processos ---------------- */
 function renderFiltros() {
   $("filtros").innerHTML = TIPOS.map(
     ([v, t]) => `<button class="chip ${v === filtroTipo ? "ativo" : ""}" data-tipo="${v}">${t}</button>`
@@ -87,7 +120,7 @@ function renderTabela() {
   const linhas = processos.filter((p) => !busca || (p.placa || "").includes(busca));
   $("vazio").hidden = linhas.length > 0;
   $("linhas").innerHTML = linhas.map((p) => `
-    <tr>
+    <tr class="linha-clicavel" data-id="${p.id}">
       <td>${p.placa
             ? `<span class="placa">${p.placa}</span>`
             : `<span class="sem-placa">sem placa</span>`}
@@ -99,9 +132,287 @@ function renderTabela() {
       <td><span class="pill ${p.status}"><i></i>${ROTULO[p.status] || p.status}</span></td>
       <td class="num mono ${p.dias_restantes < 0 ? "" : "muted"}">${p.dias_restantes}</td>
     </tr>`).join("");
+  document.querySelectorAll("#linhas tr").forEach((tr) => {
+    tr.onclick = () => abrirEdicaoProcesso(Number(tr.dataset.id));
+  });
 }
 
 const formatarData = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
+
+function abrirEdicaoProcesso(id) {
+  const p = processos.find((x) => x.id === id);
+  if (!p) return;
+  $("ep-id").value = p.id;
+  $("ep-placa").textContent = p.placa || "sem placa";
+  $("ep-etapa").innerHTML = (ETAPAS[p.tipo_servico] || [p.etapa])
+    .map((e) => `<option ${e === p.etapa ? "selected" : ""}>${e}</option>`).join("");
+  $("ep-exigencia").value = p.exigencia || "";
+  $("ep-reagendamento").value = "";
+  $("ep-prazo").value = p.prazo_dias;
+  $("ep-responsavel").value = "";
+  $("ep-observacoes").value = p.observacoes || "";
+  abrirModal("modal-editar-processo");
+}
+
+$("form-editar-processo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const erro = $("erro-editar-processo");
+  erro.hidden = true;
+  try {
+    await api(`/processos/${$("ep-id").value}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        etapa: $("ep-etapa").value,
+        exigencia: $("ep-exigencia").value.trim() || null,
+        data_reagendamento: $("ep-reagendamento").value || null,
+        prazo_dias: $("ep-prazo").value ? Number($("ep-prazo").value) : null,
+        responsavel_id: $("ep-responsavel").value ? Number($("ep-responsavel").value) : null,
+        observacoes: $("ep-observacoes").value.trim() || null,
+      }),
+    });
+    fecharModal("modal-editar-processo");
+    await carregar();
+  } catch (e2) {
+    erro.textContent = e2.message; erro.hidden = false;
+  }
+});
+
+$("btn-exportar").onclick = async () => {
+  const r = await fetch(API + "/processos/exportar.xlsx", { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) { alert("Não foi possível exportar."); return; }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "processos_1001.xlsx";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+};
+
+/* ---------------- avisos ---------------- */
+async function carregarAvisos() {
+  const somenteNaoLidos = $("chk-nao-lidos").checked;
+  const lista = await api("/avisos" + (somenteNaoLidos ? "?apenas_nao_lidos=true" : ""));
+  $("avisos-vazio").hidden = lista.length > 0;
+  $("lista-avisos").innerHTML = lista.map((a) => `
+    <div class="aviso-item ${a.lido ? "lido" : ""}" data-id="${a.id}">
+      <div>
+        <div>${a.mensagem}</div>
+        <div class="meta">${a.tipo} · ${a.criado_por || "—"} · ${new Date(a.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+      ${a.lido ? "" : `<button class="botao-sec botao" data-marcar="${a.id}">marcar lido</button>`}
+    </div>`).join("");
+  document.querySelectorAll("[data-marcar]").forEach((b) => {
+    b.onclick = async () => { await api(`/avisos/${b.dataset.marcar}/lido`, { method: "POST" }); await carregarAvisos(); };
+  });
+}
+$("chk-nao-lidos").addEventListener("change", carregarAvisos);
+
+/* ---------------- notas (admin) ---------------- */
+async function carregarFaturaveis() {
+  const lista = await api("/notas/faturaveis");
+  $("faturaveis-vazio").hidden = lista.length > 0;
+  $("wrap-faturaveis").hidden = lista.length === 0;
+  $("linhas-faturaveis").innerHTML = lista.map((p) => `
+    <tr>
+      <td><input type="checkbox" class="chk-fat" value="${p.processo_id}"></td>
+      <td class="placa">${p.placa || "—"}</td>
+      <td class="mono muted">${p.numero_ordem || "—"}</td>
+      <td><span class="tipo">${p.tipo_servico}</span></td>
+      <td class="mono muted">${p.lote || "—"}</td>
+      <td class="num"><input type="number" step="0.01" min="0" class="in-despesa" data-id="${p.processo_id}" value="0" style="width:90px"></td>
+      <td class="num"><input type="number" step="0.01" min="0" class="in-valor" data-id="${p.processo_id}" value="0" style="width:100px"></td>
+    </tr>`).join("");
+}
+
+$("form-gerar-nota").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const erro = $("erro-gerar-nota");
+  erro.hidden = true;
+  const selecionados = [...document.querySelectorAll(".chk-fat:checked")].map((c) => Number(c.value));
+  if (!selecionados.length) { erro.textContent = "Selecione ao menos um processo."; erro.hidden = false; return; }
+  const itens = selecionados.map((id) => ({
+    processo_id: id,
+    despesa: Number(document.querySelector(`.in-despesa[data-id="${id}"]`).value || 0),
+    valor_nota: Number(document.querySelector(`.in-valor[data-id="${id}"]`).value || 0),
+  }));
+  try {
+    await api("/notas", {
+      method: "POST",
+      body: JSON.stringify({
+        referencia: $("nota-referencia").value.trim(),
+        destinatario: $("nota-destinatario").value.trim() || null,
+        itens,
+      }),
+    });
+    $("form-gerar-nota").reset();
+    await carregarFaturaveis();
+    await carregarNotas();
+  } catch (e2) {
+    erro.textContent = e2.message; erro.hidden = false;
+  }
+});
+
+let notas = [];
+async function carregarNotas() {
+  notas = await api("/notas");
+  $("notas-vazio").hidden = notas.length > 0;
+  $("linhas-notas").innerHTML = notas.map((n) => `
+    <tr class="linha-clicavel" data-id="${n.id}">
+      <td>${n.referencia}</td>
+      <td class="mono">${n.numero_nf || "—"}</td>
+      <td><span class="tipo">${n.status}</span></td>
+      <td class="num mono">${n.quantidade}</td>
+      <td class="num mono">${brl(n.despesas)}</td>
+      <td class="num mono">${brl(n.valor)}</td>
+      <td class="num mono">${brl(n.diferenca)}</td>
+      <td class="muted" style="font-size:12.5px">${n.destinatario || "—"}</td>
+      <td></td>
+    </tr>`).join("");
+  document.querySelectorAll("#linhas-notas tr").forEach((tr) => {
+    tr.onclick = () => abrirEdicaoNota(Number(tr.dataset.id));
+  });
+}
+
+function abrirEdicaoNota(id) {
+  const n = notas.find((x) => x.id === id);
+  if (!n) return;
+  $("en-id").value = n.id;
+  $("en-referencia").textContent = n.referencia;
+  $("en-numero-nf").value = n.numero_nf || "";
+  $("en-status").value = n.status;
+  $("en-emissao").value = n.data_emissao || "";
+  $("en-pagamento").value = n.data_pagamento || "";
+  $("en-destinatario").value = n.destinatario || "";
+  abrirModal("modal-editar-nota");
+}
+
+$("form-editar-nota").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const erro = $("erro-editar-nota");
+  erro.hidden = true;
+  try {
+    await api(`/notas/${$("en-id").value}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        numero_nf: $("en-numero-nf").value.trim() || null,
+        status: $("en-status").value,
+        data_emissao: $("en-emissao").value || null,
+        data_pagamento: $("en-pagamento").value || null,
+        destinatario: $("en-destinatario").value.trim() || null,
+      }),
+    });
+    fecharModal("modal-editar-nota");
+    await carregarNotas();
+  } catch (e2) {
+    erro.textContent = e2.message; erro.hidden = false;
+  }
+});
+
+$("btn-ver-resumo").onclick = async () => {
+  try {
+    const r = await api(`/notas/${$("en-id").value}/resumo`);
+    $("rn-assunto").textContent = r.assunto;
+    $("rn-corpo").textContent = r.corpo;
+    abrirModal("modal-resumo-nota");
+  } catch (e) { alert(e.message); }
+};
+
+$("btn-enviar-nota").onclick = async () => {
+  try {
+    const r = await api(`/notas/${$("en-id").value}/enviar`, { method: "POST" });
+    alert("Enviado para " + r.enviado_para);
+    await carregarNotas();
+  } catch (e) { alert(e.message); }
+};
+
+/* ---------------- relatórios (admin) ---------------- */
+async function carregarRelatorios() {
+  const mensal = await api("/relatorios/mensal");
+  $("linhas-mensal").innerHTML = mensal.map((m) => `
+    <tr>
+      <td class="mono">${m.mes}</td>
+      <td class="num mono">${m.notas}</td>
+      <td class="num mono">${brl(m.despesas)}</td>
+      <td class="num mono">${brl(m.valor)}</td>
+      <td class="num mono">${brl(m.diferenca)}</td>
+      <td class="num mono">${brl(m.recebido)}</td>
+    </tr>`).join("");
+
+  const alertas = await api("/relatorios/alertas");
+  $("alerta-atrasados").innerHTML = alertas.atrasados
+    .map((a) => `<li>${a.placa || "—"} · ${a.tipo_servico} · ${formatarData(a.data_limite)} (${a.dias}d)</li>`).join("");
+  $("alerta-proximos").innerHTML = alertas.prazo_proximo
+    .map((a) => `<li>${a.placa || "—"} · ${a.tipo_servico} · ${formatarData(a.data_limite)} (${a.dias}d)</li>`).join("");
+  $("alerta-exigencias").innerHTML = alertas.exigencias
+    .map((a) => `<li>${a.placa || "—"} · ${a.exigencia || a.tipo_servico}</li>`).join("");
+  $("alerta-encaixes").innerHTML = alertas.encaixe_fechando
+    .map((e) => `<li>${e.lote} · vistoria ${formatarData(e.data_vistoria)} · fecha ${formatarData(e.fecha_em)}</li>`).join("");
+}
+
+/* ---------------- modais genéricos ---------------- */
+function abrirModal(id) {
+  document.querySelectorAll(`#${id} .erro`).forEach((e) => (e.hidden = true));
+  $(id).hidden = false;
+}
+function fecharModal(id) { $(id).hidden = true; }
+
+document.querySelectorAll(".modal-fundo").forEach((fundo) => {
+  fundo.addEventListener("click", (e) => { if (e.target === fundo) fundo.hidden = true; });
+  fundo.querySelectorAll("[data-fechar]").forEach((b) => (b.onclick = () => (fundo.hidden = true)));
+});
+
+$("btn-novo-processo").onclick = () => {
+  $("form-processo").reset();
+  $("p-data-recebimento").valueAsDate = new Date();
+  abrirModal("modal-processo");
+};
+$("btn-novo-aviso").onclick = () => { $("form-aviso").reset(); abrirModal("modal-aviso"); };
+
+$("form-processo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const erro = $("erro-processo");
+  erro.hidden = true;
+  try {
+    await api("/processos", {
+      method: "POST",
+      body: JSON.stringify({
+        placa: $("p-placa").value.trim().toUpperCase(),
+        numero_ordem: $("p-numero-ordem").value.trim() || null,
+        renavam: $("p-renavam").value.trim() || null,
+        tipo_servico: $("p-tipo").value,
+        data_recebimento: $("p-data-recebimento").value,
+        prazo_dias: $("p-prazo").value ? Number($("p-prazo").value) : null,
+        lote_nome: $("p-lote").value.trim() || null,
+        empresa_cnpj: $("p-empresa-cnpj").value.trim() || null,
+        observacoes: $("p-observacoes").value.trim() || null,
+      }),
+    });
+    fecharModal("modal-processo");
+    await carregar();
+  } catch (e2) {
+    erro.textContent = e2.message; erro.hidden = false;
+  }
+});
+
+$("form-aviso").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const erro = $("erro-aviso");
+  erro.hidden = true;
+  try {
+    await api("/avisos", {
+      method: "POST",
+      body: JSON.stringify({
+        mensagem: $("a-mensagem").value.trim(),
+        tipo: $("a-tipo").value,
+        processo_id: $("a-processo-id").value ? Number($("a-processo-id").value) : null,
+      }),
+    });
+    fecharModal("modal-aviso");
+    await carregarAvisos();
+  } catch (e2) {
+    erro.textContent = e2.message; erro.hidden = false;
+  }
+});
 
 $("btn-entrar").onclick = entrar;
 $("in-senha").addEventListener("keydown", (e) => { if (e.key === "Enter") entrar(); });

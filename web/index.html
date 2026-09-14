@@ -26,28 +26,239 @@
   </section>
 
   <section id="tela-app" hidden>
-    <div id="stats" class="stats"></div>
 
-    <div class="barra">
-      <div class="chips" id="filtros"></div>
-      <input id="busca" class="busca" type="search" placeholder="Buscar placa…">
-    </div>
+    <nav class="abas" id="abas">
+      <button class="aba ativo" data-aba="processos">Processos</button>
+      <button class="aba" data-aba="avisos">Avisos</button>
+      <button class="aba" data-aba="notas" data-so-admin hidden>Notas</button>
+      <button class="aba" data-aba="relatorios" data-so-admin hidden>Relatórios</button>
+    </nav>
 
-    <div id="vazio" class="vazio" hidden>Nenhum processo com esse filtro.</div>
+    <!-- ================= PROCESSOS ================= -->
+    <section id="aba-processos" class="aba-conteudo">
+      <div id="stats" class="stats"></div>
 
-    <div class="tabela-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Placa</th><th>Tipo</th><th>Lote</th><th>Etapa</th>
-            <th>Limite</th><th>Status</th><th class="num">Dias</th>
-          </tr>
-        </thead>
-        <tbody id="linhas"></tbody>
-      </table>
-    </div>
+      <div class="barra">
+        <div class="chips" id="filtros"></div>
+        <div class="acoes">
+          <input id="busca" class="busca" type="search" placeholder="Buscar placa…">
+          <button id="btn-exportar" class="botao botao-sec">Exportar .xlsx</button>
+          <button id="btn-novo-processo" class="botao">+ Processo</button>
+        </div>
+      </div>
+
+      <div id="vazio" class="vazio" hidden>Nenhum processo com esse filtro.</div>
+
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Placa</th><th>Tipo</th><th>Lote</th><th>Etapa</th>
+              <th>Limite</th><th>Status</th><th class="num">Dias</th>
+            </tr>
+          </thead>
+          <tbody id="linhas"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= AVISOS ================= -->
+    <section id="aba-avisos" class="aba-conteudo" hidden>
+      <div class="barra">
+        <label class="check-inline"><input type="checkbox" id="chk-nao-lidos"> só não lidos</label>
+        <button id="btn-novo-aviso" class="botao">+ Aviso</button>
+      </div>
+      <div id="avisos-vazio" class="vazio" hidden>Nenhum aviso.</div>
+      <div id="lista-avisos" class="lista-avisos"></div>
+    </section>
+
+    <!-- ================= NOTAS (admin) ================= -->
+    <section id="aba-notas" class="aba-conteudo" hidden>
+      <h3 class="titulo-secao">Processos prontos para faturar</h3>
+      <div id="faturaveis-vazio" class="vazio" hidden>Nenhum processo concluído sem nota.</div>
+      <form id="form-gerar-nota">
+        <div class="tabela-wrap" id="wrap-faturaveis">
+          <table>
+            <thead>
+              <tr>
+                <th></th><th>Placa</th><th>Nº ordem</th><th>Tipo</th><th>Lote</th>
+                <th class="num">Despesa (R$)</th><th class="num">Valor da nota (R$)</th>
+              </tr>
+            </thead>
+            <tbody id="linhas-faturaveis"></tbody>
+          </table>
+        </div>
+        <div class="barra-nota">
+          <input id="nota-referencia" placeholder="Referência da nota" required>
+          <input id="nota-destinatario" type="email" placeholder="E-mail destinatário (opcional)">
+          <button type="submit" class="botao">Gerar nota com selecionados</button>
+        </div>
+        <p id="erro-gerar-nota" class="erro" hidden></p>
+      </form>
+
+      <h3 class="titulo-secao">Notas emitidas</h3>
+      <div id="notas-vazio" class="vazio" hidden>Nenhuma nota emitida ainda.</div>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Referência</th><th>NF</th><th>Status</th><th class="num">Qtd</th>
+              <th class="num">Despesas</th><th class="num">Valor</th><th class="num">Diferença</th>
+              <th>Destinatário</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="linhas-notas"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= RELATÓRIOS (admin) ================= -->
+    <section id="aba-relatorios" class="aba-conteudo" hidden>
+      <h3 class="titulo-secao">Fechamento mensal</h3>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mês</th><th class="num">Notas</th><th class="num">Despesas</th>
+              <th class="num">Valor</th><th class="num">Diferença</th><th class="num">Recebido</th>
+            </tr>
+          </thead>
+          <tbody id="linhas-mensal"></tbody>
+        </table>
+      </div>
+
+      <h3 class="titulo-secao">Alertas de hoje</h3>
+      <div class="grade-alertas">
+        <div><h4>Atrasados</h4><ul id="alerta-atrasados" class="lista-alertas"></ul></div>
+        <div><h4>Prazo próximo</h4><ul id="alerta-proximos" class="lista-alertas"></ul></div>
+        <div><h4>Exigências</h4><ul id="alerta-exigencias" class="lista-alertas"></ul></div>
+        <div><h4>Encaixe fechando</h4><ul id="alerta-encaixes" class="lista-alertas"></ul></div>
+      </div>
+    </section>
+
   </section>
 </main>
+
+<!-- ============ MODAL: novo processo ============ -->
+<div id="modal-processo" class="modal-fundo" hidden>
+  <form id="form-processo" class="modal">
+    <h3>Novo processo</h3>
+    <p id="erro-processo" class="erro" hidden></p>
+    <div class="campos-2">
+      <label>Placa<input id="p-placa" required maxlength="10" style="text-transform:uppercase"></label>
+      <label>Nº de ordem<input id="p-numero-ordem"></label>
+    </div>
+    <label>Renavam<input id="p-renavam"></label>
+    <div class="campos-2">
+      <label>Tipo de serviço
+        <select id="p-tipo" required>
+          <option value="volante">Transferência</option>
+          <option value="atpve">ATPV-e</option>
+          <option value="licenciamento">Licenciamento</option>
+          <option value="avulso">Avulso</option>
+        </select>
+      </label>
+      <label>Data de recebimento<input id="p-data-recebimento" type="date" required></label>
+    </div>
+    <div class="campos-2">
+      <label>Prazo (dias)<input id="p-prazo" type="number" min="1" placeholder="padrão do tipo"></label>
+      <label>Lote<input id="p-lote" placeholder="opcional"></label>
+    </div>
+    <label>CNPJ da empresa<input id="p-empresa-cnpj" placeholder="30.069.314/0001-01"></label>
+    <label>Observações<textarea id="p-observacoes" rows="2"></textarea></label>
+    <div class="modal-acoes">
+      <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
+      <button type="submit" class="botao">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ MODAL: editar processo (etapa/exigência/etc.) ============ -->
+<div id="modal-editar-processo" class="modal-fundo" hidden>
+  <form id="form-editar-processo" class="modal">
+    <h3>Atualizar processo <span id="ep-placa" class="muted mono"></span></h3>
+    <p id="erro-editar-processo" class="erro" hidden></p>
+    <input type="hidden" id="ep-id">
+    <label>Etapa
+      <select id="ep-etapa"></select>
+    </label>
+    <label>Exigência (se houver)<textarea id="ep-exigencia" rows="2"></textarea></label>
+    <div class="campos-2">
+      <label>Reagendamento<input id="ep-reagendamento" type="date"></label>
+      <label>Prazo (dias)<input id="ep-prazo" type="number" min="1"></label>
+    </div>
+    <label>Responsável (id do usuário)<input id="ep-responsavel" type="number" min="1"></label>
+    <label>Observações<textarea id="ep-observacoes" rows="2"></textarea></label>
+    <div class="modal-acoes">
+      <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
+      <button type="submit" class="botao">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ MODAL: novo aviso ============ -->
+<div id="modal-aviso" class="modal-fundo" hidden>
+  <form id="form-aviso" class="modal">
+    <h3>Novo aviso</h3>
+    <p id="erro-aviso" class="erro" hidden></p>
+    <label>Mensagem<textarea id="a-mensagem" rows="3" required></textarea></label>
+    <div class="campos-2">
+      <label>Tipo
+        <select id="a-tipo">
+          <option value="geral">Geral</option>
+          <option value="avulso">Avulso</option>
+          <option value="exigencia">Exigência</option>
+        </select>
+      </label>
+      <label>Processo (id, opcional)<input id="a-processo-id" type="number" min="1"></label>
+    </div>
+    <div class="modal-acoes">
+      <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
+      <button type="submit" class="botao">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ MODAL: editar nota ============ -->
+<div id="modal-editar-nota" class="modal-fundo" hidden>
+  <form id="form-editar-nota" class="modal">
+    <h3>Nota <span id="en-referencia" class="muted"></span></h3>
+    <p id="erro-editar-nota" class="erro" hidden></p>
+    <input type="hidden" id="en-id">
+    <div class="campos-2">
+      <label>Nº da nota fiscal<input id="en-numero-nf"></label>
+      <label>Status
+        <select id="en-status">
+          <option value="rascunho">Rascunho</option>
+          <option value="emitida">Emitida</option>
+          <option value="enviada">Enviada</option>
+          <option value="paga">Paga</option>
+        </select>
+      </label>
+    </div>
+    <div class="campos-2">
+      <label>Data de emissão<input id="en-emissao" type="date"></label>
+      <label>Data de pagamento<input id="en-pagamento" type="date"></label>
+    </div>
+    <label>Destinatário (e-mail)<input id="en-destinatario" type="email"></label>
+    <div class="modal-acoes">
+      <button type="button" class="botao botao-sec" id="btn-ver-resumo">Ver resumo do e-mail</button>
+      <button type="button" class="botao botao-sec" id="btn-enviar-nota">Enviar por e-mail</button>
+      <button type="submit" class="botao">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ MODAL: resumo do e-mail da nota ============ -->
+<div id="modal-resumo-nota" class="modal-fundo" hidden>
+  <div class="modal">
+    <h3 id="rn-assunto"></h3>
+    <pre id="rn-corpo" class="resumo-nota"></pre>
+    <div class="modal-acoes">
+      <button type="button" class="botao" data-fechar>Fechar</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
