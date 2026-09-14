@@ -71,6 +71,7 @@ class ProcessoOut(BaseModel):
     exigencia: str | None = None
     observacoes: str | None = None
     qtd_anexos: int = 0
+    arquivado_em: datetime | None = None
 
 
 class NotaItemIn(BaseModel):

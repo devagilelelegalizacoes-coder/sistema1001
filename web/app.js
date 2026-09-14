@@ -100,6 +100,7 @@ document.querySelectorAll(".aba").forEach((btn) => {
     document.querySelectorAll(".aba").forEach((b) => b.classList.toggle("ativo", b === btn));
     document.querySelectorAll(".aba-conteudo").forEach((s) => (s.hidden = true));
     $("aba-" + btn.dataset.aba).hidden = false;
+    if (btn.dataset.aba === "arquivados") await carregarArquivados();
     if (btn.dataset.aba === "avisos") await carregarAvisos();
     if (btn.dataset.aba === "notas") { await carregarFaturaveis(); await carregarNotas(); }
     if (btn.dataset.aba === "relatorios") await carregarRelatorios();
@@ -171,8 +172,20 @@ function abrirEdicaoProcesso(id) {
   $("ep-numero-ordem").value = p.numero_ordem || "";
   $("ep-renavam").value = p.renavam || "";
   $("ep-empresa-cnpj").value = "";
+  $("btn-arquivar-processo").hidden = p.etapa !== "Concluído";
+  $("btn-arquivar-processo").dataset.id = p.id;
   abrirModal("modal-editar-processo");
 }
+
+$("btn-arquivar-processo").onclick = async () => {
+  const id = $("btn-arquivar-processo").dataset.id;
+  if (!confirm("Arquivar este processo? Ele sai da tela principal e vai pra aba Arquivados.")) return;
+  try {
+    await api(`/processos/${id}/arquivar`, { method: "POST" });
+    fecharModal("modal-editar-processo");
+    await carregar();
+  } catch (e) { alert(e.message); }
+};
 
 // o status "exigência" é calculado só pela etapa (regras.py), não pelo texto —
 // então preencher a exigência sem trocar a etapa fazia o processo "sumir" dos
@@ -269,6 +282,38 @@ $("btn-exportar").onclick = async () => {
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 };
+
+/* ---------------- arquivados ---------------- */
+let processosArquivados = [];
+async function carregarArquivados() {
+  processosArquivados = await api("/processos?arquivado=true");
+  renderTabelaArquivados();
+}
+
+function renderTabelaArquivados() {
+  const busca = $("busca-arquivados").value.trim().toUpperCase();
+  const linhas = processosArquivados.filter((p) => !busca
+    || (p.placa || "").toUpperCase().includes(busca)
+    || (p.numero_ordem || "").toUpperCase().includes(busca));
+  $("arquivados-vazio").hidden = linhas.length > 0;
+  $("linhas-arquivados").innerHTML = linhas.map((p) => `
+    <tr>
+      <td>${p.placa ? `<span class="placa">${p.placa}</span>` : `<span class="sem-placa">sem placa</span>`}</td>
+      <td><span class="tipo">${p.tipo_servico}</span></td>
+      <td class="mono muted" style="font-size:12px">${p.lote || "—"}</td>
+      <td class="mono muted">${new Date(p.arquivado_em).toLocaleString("pt-BR")}</td>
+      <td><button class="botao-sec botao" data-desarquivar="${p.id}">desarquivar</button></td>
+    </tr>`).join("");
+  document.querySelectorAll("[data-desarquivar]").forEach((b) => {
+    b.onclick = async () => {
+      try {
+        await api(`/processos/${b.dataset.desarquivar}/desarquivar`, { method: "POST" });
+        await carregarArquivados();
+      } catch (e) { alert(e.message); }
+    };
+  });
+}
+$("busca-arquivados").addEventListener("input", renderTabelaArquivados);
 
 /* ---------------- avisos ---------------- */
 async function carregarAvisos() {

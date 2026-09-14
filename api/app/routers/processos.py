@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
 from ..models import Anexo, Auditoria, Empresa, Lote, Processo, Usuario, Veiculo
-from ..regras import ETAPAS, PRAZO_PADRAO, Status, TipoServico, calcular_status
+from ..regras import ETAPA_CONCLUIDO, ETAPAS, PRAZO_PADRAO, Status, TipoServico, calcular_status
 from ..schemas import EtapaEmLote, ProcessoAtualizar, ProcessoCriar, ProcessoOut
 from ..seguranca import exige_papel, usuario_atual
 
@@ -23,6 +23,7 @@ def listar(
     placa: str | None = None,
     de: date | None = None,
     ate: date | None = None,
+    arquivado: bool = False,
     limite: int = Query(500, le=2000),
 ):
     q = (
@@ -31,6 +32,8 @@ def listar(
                  selectinload(Processo.anexos))
         .order_by(Processo.data_recebimento.desc(), Processo.id)
     )
+    # tela principal só mostra o que está ativo; a aba Arquivados pede ?arquivado=true
+    q = q.where(Processo.arquivado_em.is_not(None) if arquivado else Processo.arquivado_em.is_(None))
     if tipo:
         q = q.where(Processo.tipo_servico == tipo)
     if lote:
@@ -63,6 +66,7 @@ def listar(
             data_limite=p.data_limite, etapa=p.etapa, status=st,
             dias_restantes=(p.data_limite - hoje).days,
             exigencia=p.exigencia, observacoes=p.observacoes, qtd_anexos=len(p.anexos),
+            arquivado_em=p.arquivado_em,
         ))
     return saida
 
@@ -71,7 +75,7 @@ def listar(
 def resumo(db: Session = Depends(get_db), usuario: Usuario = Depends(usuario_atual)):
     """Contadores por status — é o que o painel mostra no topo."""
     hoje = date.today()
-    q = select(Processo).options(selectinload(Processo.veiculo))
+    q = select(Processo).options(selectinload(Processo.veiculo)).where(Processo.arquivado_em.is_(None))
     if usuario.papel == "cliente" and usuario.empresa_id:
         q = q.where(Processo.empresa_id == usuario.empresa_id)
     contagem = {s.value: 0 for s in Status}
@@ -174,6 +178,42 @@ def atualizar(
     return _com_empresa(db, p)
 
 
+@router.post("/{processo_id}/arquivar", response_model=ProcessoOut)
+def arquivar(processo_id: int, db: Session = Depends(get_db),
+             usuario: Usuario = Depends(exige_papel("admin", "operador", "despachante"))):
+    p = db.get(Processo, processo_id)
+    if not p:
+        raise HTTPException(404, "Processo não encontrado")
+    if p.etapa != ETAPA_CONCLUIDO:
+        raise HTTPException(400, "Só é possível arquivar processo concluído")
+    if p.arquivado_em:
+        raise HTTPException(400, "Processo já está arquivado")
+    p.arquivado_em = datetime.now(timezone.utc)
+    db.add(Auditoria(usuario_id=usuario.id, entidade="processo", entidade_id=p.id,
+                     acao="arquivar", antes={"arquivado_em": None},
+                     depois={"arquivado_em": p.arquivado_em.isoformat()}))
+    db.commit()
+    db.refresh(p)
+    return _com_empresa(db, p)
+
+
+@router.post("/{processo_id}/desarquivar", response_model=ProcessoOut)
+def desarquivar(processo_id: int, db: Session = Depends(get_db),
+                usuario: Usuario = Depends(exige_papel("admin", "operador", "despachante"))):
+    p = db.get(Processo, processo_id)
+    if not p:
+        raise HTTPException(404, "Processo não encontrado")
+    if not p.arquivado_em:
+        raise HTTPException(400, "Processo não está arquivado")
+    antes = p.arquivado_em.isoformat()
+    p.arquivado_em = None
+    db.add(Auditoria(usuario_id=usuario.id, entidade="processo", entidade_id=p.id,
+                     acao="desarquivar", antes={"arquivado_em": antes}, depois={"arquivado_em": None}))
+    db.commit()
+    db.refresh(p)
+    return _com_empresa(db, p)
+
+
 @router.patch("/lote/{lote_id}/etapa")
 def mudar_etapa_em_lote(
     lote_id: int,
@@ -207,6 +247,7 @@ def _com_empresa(db: Session, p: Processo) -> ProcessoOut:
         etapa=p.etapa, status=calcular_status(p.etapa, p.data_limite, hoje).value,
         dias_restantes=(p.data_limite - hoje).days,
         exigencia=p.exigencia, observacoes=p.observacoes, qtd_anexos=len(p.anexos),
+        arquivado_em=p.arquivado_em,
     )
 
 

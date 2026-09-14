@@ -107,6 +107,9 @@ class Processo(Base):
 
     origem: Mapped[str] = mapped_column(String(20), default="manual")  # email | manual | lote
     email_msg_id: Mapped[str | None] = mapped_column(String(80))
+    # null = ativo, na tela principal. Preenchido = arquivado, some da lista
+    # padrão e só aparece na aba Arquivados. Só se arquiva processo concluído.
+    arquivado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     atualizado_em: Mapped[datetime] = mapped_column(

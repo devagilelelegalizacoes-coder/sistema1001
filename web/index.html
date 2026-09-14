@@ -29,6 +29,7 @@
 
     <nav class="abas" id="abas">
       <button class="aba ativo" data-aba="processos">Processos</button>
+      <button class="aba" data-aba="arquivados">Arquivados</button>
       <button class="aba" data-aba="avisos">Avisos</button>
       <button class="aba" data-aba="notas" data-so-admin hidden>Notas</button>
       <button class="aba" data-aba="relatorios" data-so-admin hidden>Relatórios</button>
@@ -68,6 +69,24 @@
             </tr>
           </thead>
           <tbody id="linhas"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= ARQUIVADOS ================= -->
+    <section id="aba-arquivados" class="aba-conteudo" hidden>
+      <div class="barra">
+        <input id="busca-arquivados" class="busca" type="search" placeholder="Buscar placa ou nº de ordem…">
+      </div>
+      <div id="arquivados-vazio" class="vazio" hidden>Nenhum processo arquivado.</div>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Placa</th><th>Tipo</th><th>Lote</th><th>Arquivado em</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="linhas-arquivados"></tbody>
         </table>
       </div>
     </section>
@@ -232,6 +251,7 @@
     </div>
     <label>CNPJ da empresa<input id="ep-empresa-cnpj" placeholder="deixe em branco para não mudar"></label>
     <div class="modal-acoes">
+      <button type="button" class="botao botao-sec" id="btn-arquivar-processo" hidden>Arquivar</button>
       <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
       <button type="submit" class="botao">Salvar</button>
     </div>
