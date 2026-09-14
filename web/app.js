@@ -368,15 +368,19 @@ async function carregarRelatorios() {
   const mensal = await api("/relatorios/mensal");
 
   // lucro real = soma de todas as notas, não só do mês — é o que sobra pro escritório
+  // imposto e lucro líquido já vêm calculados da API (regras.py: 6% sobre o valor)
   const total = mensal.reduce((acc, m) => ({
     notas: acc.notas + m.notas, despesas: acc.despesas + m.despesas,
     valor: acc.valor + m.valor, diferenca: acc.diferenca + m.diferenca,
+    imposto: acc.imposto + m.imposto, lucro_liquido: acc.lucro_liquido + m.lucro_liquido,
     recebido: acc.recebido + m.recebido,
-  }), { notas: 0, despesas: 0, valor: 0, diferenca: 0, recebido: 0 });
+  }), { notas: 0, despesas: 0, valor: 0, diferenca: 0, imposto: 0, lucro_liquido: 0, recebido: 0 });
   $("stats-lucro").innerHTML = `
     <div class="stat"><b>${brl(total.valor)}</b><span>Receita (valor das notas)</span></div>
     <div class="stat"><b>${brl(total.despesas)}</b><span>Despesas</span></div>
-    <div class="stat ${total.diferenca >= 0 ? "no_prazo" : "atrasado"}"><b>${brl(total.diferenca)}</b><span>Lucro real</span></div>
+    <div class="stat"><b>${brl(total.diferenca)}</b><span>Diferença (antes do imposto)</span></div>
+    <div class="stat"><b>${brl(total.imposto)}</b><span>Imposto (6% do valor)</span></div>
+    <div class="stat ${total.lucro_liquido >= 0 ? "no_prazo" : "atrasado"}"><b>${brl(total.lucro_liquido)}</b><span>Lucro real (líquido)</span></div>
     <div class="stat"><b>${brl(total.recebido)}</b><span>Já recebido (notas pagas)</span></div>`;
 
   $("linhas-mensal").innerHTML = mensal.map((m) => `
@@ -386,6 +390,8 @@ async function carregarRelatorios() {
       <td class="num mono">${brl(m.despesas)}</td>
       <td class="num mono">${brl(m.valor)}</td>
       <td class="num mono">${brl(m.diferenca)}</td>
+      <td class="num mono">${brl(m.imposto)}</td>
+      <td class="num mono">${brl(m.lucro_liquido)}</td>
       <td class="num mono">${brl(m.recebido)}</td>
     </tr>`).join("");
 

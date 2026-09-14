@@ -102,6 +102,8 @@ class NotaOut(BaseModel):
     despesas: Decimal
     valor: Decimal
     diferenca: Decimal
+    imposto: Decimal
+    lucro_liquido: Decimal
 
 
 class AvisoCriar(BaseModel):
@@ -167,4 +169,6 @@ class LinhaMensal(BaseModel):
     despesas: Decimal
     valor: Decimal
     diferenca: Decimal
+    imposto: Decimal
+    lucro_liquido: Decimal
     recebido: Decimal

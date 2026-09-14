@@ -23,6 +23,7 @@ def _saida(n: Nota) -> NotaOut:
         data_envio=n.data_envio, data_pagamento=n.data_pagamento, status=n.status,
         destinatario=n.destinatario, quantidade=t["quantidade"], despesas=t["despesas"],
         valor=t["valor"], diferenca=t["diferenca"],
+        imposto=t["imposto"], lucro_liquido=t["lucro_liquido"],
     )
 
 

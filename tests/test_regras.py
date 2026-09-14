@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 
 from app.regras import (  # noqa: E402
     PRAZO_PADRAO, Status, TipoServico, calcular_status, data_limite,
-    despesa_sugerida, encaixe_permitido, totais_nota,
+    calcular_imposto, despesa_sugerida, encaixe_permitido, totais_nota,
 )
 
 HOJE = date(2026, 9, 7)
@@ -80,3 +80,14 @@ def test_valor_da_nota_ja_inclui_a_despesa():
 def test_nota_vazia_nao_quebra():
     t = totais_nota([])
     assert t["valor"] == Decimal("0") and t["diferenca"] == Decimal("0")
+
+
+def test_imposto_e_6_por_cento_do_valor():
+    assert calcular_imposto(Decimal("500")) == Decimal("30.00")
+
+
+def test_lucro_liquido_desconta_o_imposto_da_diferenca():
+    t = totais_nota([{"despesa": 190, "valor_nota": 250},
+                     {"despesa": 190, "valor_nota": 250}])
+    assert t["imposto"] == Decimal("30.00")          # 6% de 500
+    assert t["lucro_liquido"] == Decimal("90.00")    # 120 (diferença) - 30 (imposto)

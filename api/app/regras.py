@@ -81,6 +81,12 @@ DIAS_ENCAIXE = 2         # encaixe permitido até 2 dias antes da vistoria
 DESPESA_COM_VISTORIA = Decimal("190.00")
 DESPESA_SEM_VISTORIA = Decimal("50.00")
 
+ALIQUOTA_IMPOSTO = Decimal("0.06")   # 6% sobre o valor da nota — hoje em 2026
+
+
+def calcular_imposto(valor: Decimal) -> Decimal:
+    return (valor * ALIQUOTA_IMPOSTO).quantize(Decimal("0.01"))
+
 
 def data_limite(data_recebimento: date, prazo_dias: int) -> date:
     return data_recebimento + timedelta(days=prazo_dias)
@@ -115,12 +121,17 @@ def encaixe_permitido(data_vistoria: date, hoje: date | None = None) -> bool:
 
 
 def totais_nota(itens: list[dict]) -> dict:
-    """O valor da nota JÁ INCLUI a despesa: a diferença é o que fica para o escritório."""
+    """O valor da nota JÁ INCLUI a despesa: a diferença é o que fica para o escritório.
+    O imposto incide sobre o valor da nota; o lucro líquido é a diferença já descontado ele."""
     despesas = sum((Decimal(str(i["despesa"])) for i in itens), Decimal("0"))
     valor = sum((Decimal(str(i["valor_nota"])) for i in itens), Decimal("0"))
+    diferenca = valor - despesas
+    imposto = calcular_imposto(valor)
     return {
         "quantidade": len(itens),
         "despesas": despesas,
         "valor": valor,
-        "diferenca": valor - despesas,
+        "diferenca": diferenca,
+        "imposto": imposto,
+        "lucro_liquido": diferenca - imposto,
     }

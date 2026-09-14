@@ -8,29 +8,37 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
 from ..models import Lote, Nota, Processo, Usuario
-from ..regras import DIAS_ALERTA, DIAS_ENCAIXE, Status, calcular_status
+from ..regras import DIAS_ALERTA, DIAS_ENCAIXE, Status, calcular_imposto, calcular_status
+from ..schemas import LinhaMensal
 from ..seguranca import exige_papel, usuario_atual
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
 
 
-@router.get("/mensal", dependencies=[Depends(exige_papel("admin"))])
+@router.get("/mensal", response_model=list[LinhaMensal], dependencies=[Depends(exige_papel("admin"))])
 def mensal(db: Session = Depends(get_db)):
-    """Fechamento por mês de emissão da nota. Sem emissão cai em 'a emitir'."""
+    """Fechamento por mês de emissão da nota. Sem emissão cai em 'a emitir'.
+    Imposto (6% sobre o valor) e lucro líquido são calculados por nota e somados —
+    não sobre o total do mês, pra bater com o que sai em cada nota individual."""
     q = select(Nota).options(selectinload(Nota.itens))
     meses: dict[str, dict] = defaultdict(
         lambda: {"notas": 0, "despesas": Decimal("0"), "valor": Decimal("0"),
-                 "diferenca": Decimal("0"), "recebido": Decimal("0")}
+                 "diferenca": Decimal("0"), "imposto": Decimal("0"),
+                 "lucro_liquido": Decimal("0"), "recebido": Decimal("0")}
     )
     for n in db.scalars(q).all():
         chave = n.data_emissao.strftime("%Y-%m") if n.data_emissao else "a emitir"
         desp = sum((i.despesa for i in n.itens), Decimal("0"))
         val = sum((i.valor_nota for i in n.itens), Decimal("0"))
+        diferenca = val - desp
+        imposto = calcular_imposto(val)
         m = meses[chave]
         m["notas"] += 1
         m["despesas"] += desp
         m["valor"] += val
-        m["diferenca"] += val - desp
+        m["diferenca"] += diferenca
+        m["imposto"] += imposto
+        m["lucro_liquido"] += diferenca - imposto
         if n.status == "paga":
             m["recebido"] += val
     return [{"mes": k, **v} for k, v in sorted(meses.items(), reverse=True)]
