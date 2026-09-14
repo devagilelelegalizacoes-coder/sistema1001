@@ -132,7 +132,9 @@ async function carregar() {
 
 function renderTabela() {
   const busca = $("busca").value.trim().toUpperCase();
-  const linhas = processos.filter((p) => !busca || (p.placa || "").includes(busca));
+  const linhas = processos.filter((p) => !busca
+    || (p.placa || "").toUpperCase().includes(busca)
+    || (p.numero_ordem || "").toUpperCase().includes(busca));
   $("vazio").hidden = linhas.length > 0;
   $("linhas").innerHTML = linhas.map((p) => `
     <tr class="linha-clicavel" data-id="${p.id}">
