@@ -77,6 +77,19 @@ async function iniciar() {
   renderFiltros();
   await carregar();
   await carregarAvisos();
+  await carregarAlertaExigencia();
+}
+
+/* alerta de documentos em exigência — some por conta própria quando não há nenhum */
+async function carregarAlertaExigencia() {
+  const banner = $("alerta-exigencia-banner");
+  try {
+    const alertas = await api("/relatorios/alertas");
+    if (!alertas.exigencias.length) { banner.hidden = true; return; }
+    banner.hidden = false;
+    banner.innerHTML = `⚠ <b>${alertas.exigencias.length}</b> processo(s) com exigência aberta: ` +
+      alertas.exigencias.map((e) => `<b>${e.placa || "s/placa"}</b>${e.exigencia ? ` (${e.exigencia})` : ""}`).join(", ");
+  } catch { banner.hidden = true; }
 }
 
 /* ---------------- abas ---------------- */
@@ -89,6 +102,7 @@ document.querySelectorAll(".aba").forEach((btn) => {
     if (btn.dataset.aba === "avisos") await carregarAvisos();
     if (btn.dataset.aba === "notas") { await carregarFaturaveis(); await carregarNotas(); }
     if (btn.dataset.aba === "relatorios") await carregarRelatorios();
+    if (btn.dataset.aba === "usuarios") await carregarUsuarios();
   };
 });
 
@@ -328,6 +342,19 @@ $("btn-enviar-nota").onclick = async () => {
 /* ---------------- relatórios (admin) ---------------- */
 async function carregarRelatorios() {
   const mensal = await api("/relatorios/mensal");
+
+  // lucro real = soma de todas as notas, não só do mês — é o que sobra pro escritório
+  const total = mensal.reduce((acc, m) => ({
+    notas: acc.notas + m.notas, despesas: acc.despesas + m.despesas,
+    valor: acc.valor + m.valor, diferenca: acc.diferenca + m.diferenca,
+    recebido: acc.recebido + m.recebido,
+  }), { notas: 0, despesas: 0, valor: 0, diferenca: 0, recebido: 0 });
+  $("stats-lucro").innerHTML = `
+    <div class="stat"><b>${brl(total.valor)}</b><span>Receita (valor das notas)</span></div>
+    <div class="stat"><b>${brl(total.despesas)}</b><span>Despesas</span></div>
+    <div class="stat ${total.diferenca >= 0 ? "no_prazo" : "atrasado"}"><b>${brl(total.diferenca)}</b><span>Lucro real</span></div>
+    <div class="stat"><b>${brl(total.recebido)}</b><span>Já recebido (notas pagas)</span></div>`;
+
   $("linhas-mensal").innerHTML = mensal.map((m) => `
     <tr>
       <td class="mono">${m.mes}</td>
@@ -348,6 +375,60 @@ async function carregarRelatorios() {
   $("alerta-encaixes").innerHTML = alertas.encaixe_fechando
     .map((e) => `<li>${e.lote} · vistoria ${formatarData(e.data_vistoria)} · fecha ${formatarData(e.fecha_em)}</li>`).join("");
 }
+
+/* ---------------- usuários (admin) ---------------- */
+const PAPEL_ROTULO = { admin: "Administrador", operador: "Operador", despachante: "Despachante", cliente: "Cliente" };
+
+async function carregarUsuarios() {
+  const lista = await api("/usuarios");
+  $("linhas-usuarios").innerHTML = lista.map((u) => `
+    <tr>
+      <td>${u.nome}</td>
+      <td class="mono muted" style="font-size:12.5px">${u.email}</td>
+      <td><span class="tipo">${PAPEL_ROTULO[u.papel] || u.papel}</span></td>
+      <td class="mono muted">${u.empresa_id ?? "—"}</td>
+      <td class="mono muted">${u.matricula || "—"}</td>
+      <td>${u.ativo ? "sim" : "não"}</td>
+      <td><button class="botao-sec botao" data-toggle-ativo="${u.id}" data-ativo="${u.ativo}">
+        ${u.ativo ? "desativar" : "reativar"}</button></td>
+    </tr>`).join("");
+  document.querySelectorAll("[data-toggle-ativo]").forEach((b) => {
+    b.onclick = async () => {
+      try {
+        await api(`/usuarios/${b.dataset.toggleAtivo}`, {
+          method: "PATCH",
+          body: JSON.stringify({ ativo: b.dataset.ativo !== "true" }),
+        });
+        await carregarUsuarios();
+      } catch (e) { alert(e.message); }
+    };
+  });
+}
+
+$("btn-novo-usuario").onclick = () => { $("form-usuario").reset(); abrirModal("modal-usuario"); };
+
+$("form-usuario").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const erro = $("erro-usuario");
+  erro.hidden = true;
+  try {
+    await api("/usuarios", {
+      method: "POST",
+      body: JSON.stringify({
+        nome: $("u-nome").value.trim(),
+        email: $("u-email").value.trim(),
+        senha: $("u-senha").value,
+        papel: $("u-papel").value,
+        empresa_id: $("u-empresa-id").value ? Number($("u-empresa-id").value) : null,
+        matricula: $("u-matricula").value.trim() || null,
+      }),
+    });
+    fecharModal("modal-usuario");
+    await carregarUsuarios();
+  } catch (e2) {
+    erro.textContent = e2.message; erro.hidden = false;
+  }
+});
 
 /* ---------------- modais genéricos ---------------- */
 function abrirModal(id) {

@@ -120,6 +120,35 @@ class AvisoOut(BaseModel):
     criado_em: datetime
 
 
+class UsuarioCriar(BaseModel):
+    nome: str
+    email: EmailStr
+    senha: str
+    papel: str = "operador"   # admin | operador | despachante | cliente
+    empresa_id: int | None = None   # só faz sentido para papel=cliente
+    matricula: str | None = None
+
+
+class UsuarioAtualizar(BaseModel):
+    nome: str | None = None
+    papel: str | None = None
+    empresa_id: int | None = None
+    matricula: str | None = None
+    ativo: bool | None = None
+    senha: str | None = None   # se vier, troca a senha
+
+
+class UsuarioOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nome: str
+    email: str
+    papel: str
+    empresa_id: int | None = None
+    matricula: str | None = None
+    ativo: bool
+
+
 class Login(BaseModel):
     email: EmailStr
     senha: str

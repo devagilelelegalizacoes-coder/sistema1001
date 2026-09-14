@@ -32,10 +32,12 @@
       <button class="aba" data-aba="avisos">Avisos</button>
       <button class="aba" data-aba="notas" data-so-admin hidden>Notas</button>
       <button class="aba" data-aba="relatorios" data-so-admin hidden>Relatórios</button>
+      <button class="aba" data-aba="usuarios" data-so-admin hidden>Usuários</button>
     </nav>
 
     <!-- ================= PROCESSOS ================= -->
     <section id="aba-processos" class="aba-conteudo">
+      <div id="alerta-exigencia-banner" class="banner-alerta" hidden></div>
       <div id="stats" class="stats"></div>
 
       <div class="barra">
@@ -114,6 +116,9 @@
 
     <!-- ================= RELATÓRIOS (admin) ================= -->
     <section id="aba-relatorios" class="aba-conteudo" hidden>
+      <h3 class="titulo-secao">Lucro real (todas as notas)</h3>
+      <div class="stats" id="stats-lucro"></div>
+
       <h3 class="titulo-secao">Fechamento mensal</h3>
       <div class="tabela-wrap">
         <table>
@@ -133,6 +138,25 @@
         <div><h4>Prazo próximo</h4><ul id="alerta-proximos" class="lista-alertas"></ul></div>
         <div><h4>Exigências</h4><ul id="alerta-exigencias" class="lista-alertas"></ul></div>
         <div><h4>Encaixe fechando</h4><ul id="alerta-encaixes" class="lista-alertas"></ul></div>
+      </div>
+    </section>
+
+    <!-- ================= USUÁRIOS (admin) ================= -->
+    <section id="aba-usuarios" class="aba-conteudo" hidden>
+      <div class="barra">
+        <div></div>
+        <button id="btn-novo-usuario" class="botao">+ Usuário</button>
+      </div>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th><th>E-mail</th><th>Papel</th><th>Empresa (id)</th>
+              <th>Matrícula</th><th>Ativo</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="linhas-usuarios"></tbody>
+        </table>
       </div>
     </section>
 
@@ -244,6 +268,33 @@
     <div class="modal-acoes">
       <button type="button" class="botao botao-sec" id="btn-ver-resumo">Ver resumo do e-mail</button>
       <button type="button" class="botao botao-sec" id="btn-enviar-nota">Enviar por e-mail</button>
+      <button type="submit" class="botao">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ MODAL: novo usuário ============ -->
+<div id="modal-usuario" class="modal-fundo" hidden>
+  <form id="form-usuario" class="modal">
+    <h3>Novo usuário</h3>
+    <p id="erro-usuario" class="erro" hidden></p>
+    <label>Nome<input id="u-nome" required></label>
+    <label>E-mail<input id="u-email" type="email" required></label>
+    <label>Senha inicial<input id="u-senha" type="text" required value="trocar123"></label>
+    <div class="campos-2">
+      <label>Papel
+        <select id="u-papel">
+          <option value="admin">Administrador</option>
+          <option value="operador" selected>Operador</option>
+          <option value="despachante">Despachante</option>
+          <option value="cliente">Cliente</option>
+        </select>
+      </label>
+      <label>Empresa (id, só p/ cliente)<input id="u-empresa-id" type="number" min="1"></label>
+    </div>
+    <label>Matrícula (opcional)<input id="u-matricula"></label>
+    <div class="modal-acoes">
+      <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
       <button type="submit" class="botao">Salvar</button>
     </div>
   </form>

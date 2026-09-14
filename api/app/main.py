@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import auth, avisos, notas, processos, relatorios
+from .routers import auth, avisos, notas, processos, relatorios, usuarios
 
 app = FastAPI(
     title="Sistema 1001",
@@ -26,6 +26,7 @@ app.include_router(processos.router)
 app.include_router(notas.router)
 app.include_router(avisos.router)
 app.include_router(relatorios.router)
+app.include_router(usuarios.router)
 
 
 @app.get("/saude", tags=["infra"])

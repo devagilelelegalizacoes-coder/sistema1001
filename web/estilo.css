@@ -140,3 +140,8 @@ th.num,td.num{text-align:right}
 
 .resumo-nota{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12.5px;
   background:var(--bg);border-radius:8px;padding:12px;max-height:50vh;overflow:auto}
+
+.banner-alerta{background:var(--danger-soft);color:var(--danger);border-radius:10px;
+  padding:12px 16px;margin-bottom:16px;font-size:13.5px;display:flex;align-items:center;
+  gap:8px;flex-wrap:wrap;box-shadow:var(--sombra)}
+.banner-alerta b{font-family:ui-monospace,monospace}
