@@ -1,0 +1,11 @@
+# Só pra testar na sua máquina. O docker-compose.yml principal não publica
+# porta nenhuma de propósito (evita colidir com o proxy do EasyPanel/etc. em
+# produção). Rode assim, localmente:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Depois: http://localhost
+
+services:
+  caddy:
+    ports: ["80:80"]

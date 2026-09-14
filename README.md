@@ -9,8 +9,13 @@ O Compose já inclui PostgreSQL, Redis, API, worker, n8n e o servidor web. Para
 subir localmente com os valores de desenvolvimento padrão:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
+
+(o `docker-compose.yml` principal não publica porta nenhuma de propósito —
+pensado pra rodar atrás do proxy de uma plataforma tipo EasyPanel, que já é
+dona da porta 80/443 do servidor. O `docker-compose.local.yml` só acrescenta
+a porta 80 pra você testar na sua máquina.)
 
 No Windows PowerShell, o comando é o mesmo. Depois, abra:
 
@@ -71,6 +76,31 @@ já se enxergando pelo nome, igual roda local.
    `5678` (mais simples que passar pelo Caddy) — ou usar o `N8N_HOST`
    configurado acima e apontar pro `caddy` também, porta `80`.
 
+**Problemas comuns ao configurar a fonte (tela "Compose"):**
+
+- Se a tela pedir **URL do Repositório** (aba "Git", não "Github"): use a
+  URL completa, `https://github.com/SEU_USUARIO/sistema1001.git` — o
+  formato curto `usuario/repo` só funciona na aba "Github" com OAuth.
+  Repositório público não precisa da chave SSH que aparece embaixo.
+- **Ramo**: `master` (é o default do git, não `main`).
+- **Caminho de Build**: `/` — a raiz do repositório, onde `docker-compose.yml`
+  fica ao lado das pastas `api/` e `web/`. Se apontar pra `/api` o build
+  falha com `path ".../api" not found` (o Docker acha que `/api` já é a
+  raiz, e procura uma subpasta `api/` dentro dela que não existe).
+- **"ports is used in caddy. It might cause conflicts..."**: é só aviso,
+  o `docker-compose.yml` já não publica porta nenhuma por padrão — pode
+  seguir.
+- **"DB_SENHA variable is not set"**: se você preencheu a variável na tela
+  de ambiente do Compose e o aviso continua aparecendo, essa versão do
+  EasyPanel não está repassando essas variáveis pro `docker compose`
+  (comportamento observado, não é bug do projeto). Sem problema: todo
+  lugar que usa `DB_SENHA` (e as outras) tem o mesmo valor padrão de
+  fallback, então mesmo sem a variável chegar tudo sobe consistente —
+  só que com uma senha padrão, não a forte que você escolheu. Pra usar a
+  sua de verdade, procure se o EasyPanel tem uma aba separada de ".env"
+  ou "Variáveis" específica pra arquivos de Compose (às vezes é diferente
+  da aba de variáveis de um App comum).
+
 ### Como serviços individuais (App por Dockerfile)
 
 Se não tiver Compose disponível, dá pra recriar a stack como serviços
@@ -107,8 +137,9 @@ Caddy cuidar do HTTPS sozinho:
 1. `Caddyfile`: troque `http://{$DOMINIO:localhost}` e
    `http://{$N8N_HOST:n8n.localhost}` por `{$DOMINIO}` e `{$N8N_HOST}`
    (sem o `http://` na frente).
-2. `docker-compose.yml`: no serviço `caddy`, troque `ports: ["80:80"]` por
-   `ports: ["80:80", "443:443"]`.
+2. `docker-compose.yml`: no serviço `caddy`, adicione
+   `ports: ["80:80", "443:443"]` (o padrão não publica porta nenhuma —
+   ver comentário no arquivo).
 
 ```bash
 cp .env.example .env      # preencha DB_SENHA, JWT_SECRET, N8N_SENHA, DOMINIO, N8N_HOST

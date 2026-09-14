@@ -26,7 +26,11 @@ services:
     build: ./api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://sistema1001:${DB_SENHA}@db:5432/sistema1001
+      # o mesmo default do serviço "db" logo acima — se a plataforma não
+      # repassar DB_SENHA pra substituição do compose (aconteceu no
+      # EasyPanel), os dois caem no mesmo valor em vez de ficar com senhas
+      # diferentes (api com "" vazio, db com o default) e a API não subir.
+      DATABASE_URL: postgresql+psycopg://sistema1001:${DB_SENHA:-sistema1001_dev}@db:5432/sistema1001
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-sistema1001_dev_jwt_secret}
       SMTP_HOST: ${SMTP_HOST:-}
@@ -44,7 +48,7 @@ services:
     build: ./api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://sistema1001:${DB_SENHA}@db:5432/sistema1001
+      DATABASE_URL: postgresql+psycopg://sistema1001:${DB_SENHA:-sistema1001_dev}@db:5432/sistema1001
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-sistema1001_dev_jwt_secret}
     depends_on:
@@ -68,10 +72,12 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    # só HTTP: o Caddy não emite certificado sozinho por padrão (ver Caddyfile).
-    # Rodando num VPS nu com domínio real e sem outro proxy na frente,
-    # troque para ["80:80", "443:443"] e mude o Caddyfile de volta.
-    ports: ["80:80"]
+    # sem "ports:" aqui de propósito: numa plataforma tipo EasyPanel, a porta
+    # 80 do host já é do proxy dela (Traefik/etc.), publicar de novo colide.
+    # O domínio público aponta pro container "caddy" na porta 80 pela rede
+    # interna, configurado na tela de Domínios da plataforma.
+    # Testando local ou num VPS nu (sem outra plataforma por cima), use
+    # docker-compose.local.yml — ver README.
     environment:
       DOMINIO: ${DOMINIO:-localhost}
       N8N_HOST: ${N8N_HOST:-n8n.localhost}
