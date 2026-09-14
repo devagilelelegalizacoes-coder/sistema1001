@@ -7,6 +7,10 @@ app = FastAPI(
     title="Sistema 1001",
     description="Controle de processos da AUTO VIAÇÃO 1001 — Agile Legalizações",
     version="0.1.0",
+    # o Caddy expõe a API em /api/* e remove esse prefixo antes de repassar
+    # (uri strip_prefix /api). Sem isto, o Swagger busca /openapi.json na raiz
+    # e cai no front estático em vez de bater na API.
+    root_path="/api",
 )
 
 app.add_middleware(
