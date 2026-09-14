@@ -94,17 +94,24 @@ async function carregarAlertaExigencia() {
 }
 
 /* ---------------- abas ---------------- */
+async function carregarAba(nome) {
+  if (nome === "processos") {
+    await carregar(); await carregarAlertaExigencia(); await carregarLotesFormulario();
+  }
+  if (nome === "arquivados") await carregarArquivados();
+  if (nome === "avisos") await carregarAvisos();
+  if (nome === "notas") { await carregarFaturaveis(); await carregarNotas(); }
+  if (nome === "relatorios") await carregarRelatorios();
+  if (nome === "usuarios") await carregarUsuarios();
+}
+
 document.querySelectorAll(".aba").forEach((btn) => {
   btn.onclick = async () => {
     if (btn.hidden) return;
     document.querySelectorAll(".aba").forEach((b) => b.classList.toggle("ativo", b === btn));
     document.querySelectorAll(".aba-conteudo").forEach((s) => (s.hidden = true));
     $("aba-" + btn.dataset.aba).hidden = false;
-    if (btn.dataset.aba === "arquivados") await carregarArquivados();
-    if (btn.dataset.aba === "avisos") await carregarAvisos();
-    if (btn.dataset.aba === "notas") { await carregarFaturaveis(); await carregarNotas(); }
-    if (btn.dataset.aba === "relatorios") await carregarRelatorios();
-    if (btn.dataset.aba === "usuarios") await carregarUsuarios();
+    await carregarAba(btn.dataset.aba);
   };
 });
 
@@ -633,5 +640,28 @@ $("form-aviso").addEventListener("submit", async (e) => {
 $("btn-entrar").onclick = entrar;
 $("in-senha").addEventListener("keydown", (e) => { if (e.key === "Enter") entrar(); });
 $("busca").addEventListener("input", renderTabela);
+
+/* ---------------- atualização automática ---------------- */
+// sem isto, um cadastro feito por outra pessoa só aparecia depois de F5.
+// Atualiza só a aba visível, e pula enquanto algum formulário está aberto
+// (senão apagaria o que a pessoa está digitando, ex.: valores da nota).
+const INTERVALO_ATUALIZACAO_MS = 20000;
+
+function podeAtualizarAgora() {
+  if (!token || $("tela-app").hidden) return false;
+  if (document.hidden) return false;
+  if (document.querySelector(".modal-fundo:not([hidden])")) return false;
+  return true;
+}
+
+async function atualizarAbaAtiva() {
+  if (!podeAtualizarAgora()) return;
+  const abaAtiva = document.querySelector(".aba.ativo");
+  if (abaAtiva) await carregarAba(abaAtiva.dataset.aba);
+}
+
+setInterval(atualizarAbaAtiva, INTERVALO_ATUALIZACAO_MS);
+document.addEventListener("visibilitychange", atualizarAbaAtiva);
+window.addEventListener("focus", atualizarAbaAtiva);
 
 token ? iniciar() : (($("tela-login").hidden = false));
