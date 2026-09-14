@@ -81,11 +81,27 @@ DIAS_ENCAIXE = 2         # encaixe permitido até 2 dias antes da vistoria
 DESPESA_COM_VISTORIA = Decimal("190.00")
 DESPESA_SEM_VISTORIA = Decimal("50.00")
 
-ALIQUOTA_IMPOSTO = Decimal("0.06")   # 6% sobre o valor da nota — hoje em 2026
+# Alíquota do imposto sobre o valor da nota, por ano. Muda de ano para ano —
+# quando mudar (ex.: 2027), só acrescentar uma linha aqui, nada mais no código
+# precisa mexer. Uma nota emitida em 2026 sempre usa a de 2026, mesmo que o
+# cálculo rode em 2027 — é a alíquota vigente na emissão que vale.
+ALIQUOTA_IMPOSTO_POR_ANO: dict[int, Decimal] = {
+    2026: Decimal("0.06"),
+}
 
 
-def calcular_imposto(valor: Decimal) -> Decimal:
-    return (valor * ALIQUOTA_IMPOSTO).quantize(Decimal("0.01"))
+def aliquota_imposto(ano: int | None = None) -> Decimal:
+    """Alíquota vigente no ano dado (hoje, se omitido). Ano sem alíquota
+    cadastrada usa a mais recente já definida — nunca quebra por falta de
+    linha nova em janeiro."""
+    ano = ano or date.today().year
+    anos_cadastrados = [a for a in ALIQUOTA_IMPOSTO_POR_ANO if a <= ano]
+    ano_de_referencia = max(anos_cadastrados) if anos_cadastrados else min(ALIQUOTA_IMPOSTO_POR_ANO)
+    return ALIQUOTA_IMPOSTO_POR_ANO[ano_de_referencia]
+
+
+def calcular_imposto(valor: Decimal, ano: int | None = None) -> Decimal:
+    return (valor * aliquota_imposto(ano)).quantize(Decimal("0.01"))
 
 
 def data_limite(data_recebimento: date, prazo_dias: int) -> date:
@@ -120,13 +136,14 @@ def encaixe_permitido(data_vistoria: date, hoje: date | None = None) -> bool:
     return (data_vistoria - hoje).days >= DIAS_ENCAIXE
 
 
-def totais_nota(itens: list[dict]) -> dict:
+def totais_nota(itens: list[dict], ano_emissao: int | None = None) -> dict:
     """O valor da nota JÁ INCLUI a despesa: a diferença é o que fica para o escritório.
-    O imposto incide sobre o valor da nota; o lucro líquido é a diferença já descontado ele."""
+    O imposto incide sobre o valor da nota; o lucro líquido é a diferença já descontado ele.
+    ano_emissao fixa a alíquota do ano da nota; sem emissão ainda, usa a de hoje."""
     despesas = sum((Decimal(str(i["despesa"])) for i in itens), Decimal("0"))
     valor = sum((Decimal(str(i["valor_nota"])) for i in itens), Decimal("0"))
     diferenca = valor - despesas
-    imposto = calcular_imposto(valor)
+    imposto = calcular_imposto(valor, ano_emissao)
     return {
         "quantidade": len(itens),
         "despesas": despesas,

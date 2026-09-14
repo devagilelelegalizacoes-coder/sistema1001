@@ -108,6 +108,7 @@
             <tr>
               <th>Referência</th><th>NF</th><th>Status</th><th class="num">Qtd</th>
               <th class="num">Despesas</th><th class="num">Valor</th><th class="num">Diferença</th>
+              <th class="num">Imposto (6%)</th><th class="num">Lucro líquido</th>
               <th>Destinatário</th><th></th>
             </tr>
           </thead>
@@ -209,7 +210,9 @@
     <label>Etapa
       <select id="ep-etapa"></select>
     </label>
-    <label>Exigência (se houver)<textarea id="ep-exigencia" rows="2"></textarea></label>
+    <label>Exigência (preencher também muda a etapa para "Exigência aberta")
+      <textarea id="ep-exigencia" rows="2"></textarea>
+    </label>
     <div class="campos-2">
       <label>Reagendamento<input id="ep-reagendamento" type="date"></label>
       <label>Prazo (dias)<input id="ep-prazo" type="number" min="1"></label>

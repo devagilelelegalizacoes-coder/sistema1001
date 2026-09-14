@@ -169,6 +169,17 @@ function abrirEdicaoProcesso(id) {
   abrirModal("modal-editar-processo");
 }
 
+// o status "exigência" é calculado só pela etapa (regras.py), não pelo texto —
+// então preencher a exigência sem trocar a etapa fazia o processo "sumir" dos
+// alertas. Aqui a etapa acompanha automaticamente, a não ser que já esteja
+// concluído (não voltamos um processo fechado pra trás sem o usuário pedir).
+$("ep-exigencia").addEventListener("input", () => {
+  const etapa = $("ep-etapa");
+  if ($("ep-exigencia").value.trim() && etapa.value !== "Concluído") {
+    etapa.value = "Exigência aberta";
+  }
+});
+
 $("form-editar-processo").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-editar-processo");
@@ -303,6 +314,8 @@ async function carregarNotas() {
       <td class="num mono">${brl(n.despesas)}</td>
       <td class="num mono">${brl(n.valor)}</td>
       <td class="num mono">${brl(n.diferenca)}</td>
+      <td class="num mono">${brl(n.imposto)}</td>
+      <td class="num mono">${brl(n.lucro_liquido)}</td>
       <td class="muted" style="font-size:12.5px">${n.destinatario || "—"}</td>
       <td></td>
     </tr>`).join("");

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 
 from app.regras import (  # noqa: E402
     PRAZO_PADRAO, Status, TipoServico, calcular_status, data_limite,
-    calcular_imposto, despesa_sugerida, encaixe_permitido, totais_nota,
+    aliquota_imposto, calcular_imposto, despesa_sugerida, encaixe_permitido, totais_nota,
 )
 
 HOJE = date(2026, 9, 7)
@@ -82,12 +82,29 @@ def test_nota_vazia_nao_quebra():
     assert t["valor"] == Decimal("0") and t["diferenca"] == Decimal("0")
 
 
-def test_imposto_e_6_por_cento_do_valor():
-    assert calcular_imposto(Decimal("500")) == Decimal("30.00")
+def test_imposto_e_6_por_cento_do_valor_em_2026():
+    assert calcular_imposto(Decimal("500"), 2026) == Decimal("30.00")
 
 
 def test_lucro_liquido_desconta_o_imposto_da_diferenca():
     t = totais_nota([{"despesa": 190, "valor_nota": 250},
-                     {"despesa": 190, "valor_nota": 250}])
+                     {"despesa": 190, "valor_nota": 250}], 2026)
     assert t["imposto"] == Decimal("30.00")          # 6% de 500
     assert t["lucro_liquido"] == Decimal("90.00")    # 120 (diferença) - 30 (imposto)
+
+
+def test_ano_sem_aliquota_cadastrada_usa_a_mais_recente_ja_definida():
+    # 2027 ainda não tem linha própria — cai na de 2026 até alguém cadastrar
+    assert aliquota_imposto(2027) == Decimal("0.06")
+
+
+def test_aliquota_muda_quando_o_ano_seguinte_e_cadastrado(monkeypatch):
+    import app.regras as regras
+    tabela_original = dict(regras.ALIQUOTA_IMPOSTO_POR_ANO)
+    regras.ALIQUOTA_IMPOSTO_POR_ANO[2027] = Decimal("0.07")
+    try:
+        assert aliquota_imposto(2027) == Decimal("0.07")
+        assert aliquota_imposto(2026) == Decimal("0.06")   # nota antiga não muda retroativamente
+    finally:
+        regras.ALIQUOTA_IMPOSTO_POR_ANO.clear()
+        regras.ALIQUOTA_IMPOSTO_POR_ANO.update(tabela_original)

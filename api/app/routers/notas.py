@@ -17,7 +17,8 @@ router = APIRouter(prefix="/notas", tags=["notas"],
 
 
 def _saida(n: Nota) -> NotaOut:
-    t = totais_nota([{"despesa": i.despesa, "valor_nota": i.valor_nota} for i in n.itens])
+    ano = n.data_emissao.year if n.data_emissao else None
+    t = totais_nota([{"despesa": i.despesa, "valor_nota": i.valor_nota} for i in n.itens], ano)
     return NotaOut(
         id=n.id, referencia=n.referencia, numero_nf=n.numero_nf, data_emissao=n.data_emissao,
         data_envio=n.data_envio, data_pagamento=n.data_pagamento, status=n.status,
