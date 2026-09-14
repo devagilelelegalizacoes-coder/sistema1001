@@ -44,11 +44,17 @@
         <div class="chips" id="filtros"></div>
         <div class="acoes">
           <input id="busca" class="busca" type="search" placeholder="Buscar placa…">
-          <select id="sel-lote-formulario" title="Formulário de agendamento por lote"></select>
-          <button id="btn-formulario-lote" class="botao botao-sec">Formulário .docx</button>
           <button id="btn-exportar" class="botao botao-sec">Exportar .xlsx</button>
           <button id="btn-novo-processo" class="botao">+ Processo</button>
         </div>
+      </div>
+
+      <div class="barra barra-lote">
+        <span class="muted" style="font-size:12.5px">Ações em lote:</span>
+        <select id="sel-lote-acoes" title="Lote"></select>
+        <button id="btn-formulario-lote" class="botao botao-sec">Formulário .docx</button>
+        <select id="sel-lote-etapa" title="Nova etapa para todo o lote"></select>
+        <button id="btn-etapa-lote" class="botao botao-sec">Mudar etapa do lote</button>
       </div>
 
       <div id="vazio" class="vazio" hidden>Nenhum processo com esse filtro.</div>
@@ -219,6 +225,12 @@
     </div>
     <label>Responsável (id do usuário)<input id="ep-responsavel" type="number" min="1"></label>
     <label>Observações<textarea id="ep-observacoes" rows="2"></textarea></label>
+    <p class="titulo-secao" style="margin:4px 0 0">Dados do veículo / empresa</p>
+    <div class="campos-2">
+      <label>Nº de ordem<input id="ep-numero-ordem"></label>
+      <label>Renavam<input id="ep-renavam"></label>
+    </div>
+    <label>CNPJ da empresa<input id="ep-empresa-cnpj" placeholder="deixe em branco para não mudar"></label>
     <div class="modal-acoes">
       <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
       <button type="submit" class="botao">Salvar</button>

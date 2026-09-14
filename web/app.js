@@ -166,6 +166,9 @@ function abrirEdicaoProcesso(id) {
   $("ep-prazo").value = p.prazo_dias;
   $("ep-responsavel").value = "";
   $("ep-observacoes").value = p.observacoes || "";
+  $("ep-numero-ordem").value = p.numero_ordem || "";
+  $("ep-renavam").value = p.renavam || "";
+  $("ep-empresa-cnpj").value = "";
   abrirModal("modal-editar-processo");
 }
 
@@ -194,6 +197,9 @@ $("form-editar-processo").addEventListener("submit", async (e) => {
         prazo_dias: $("ep-prazo").value ? Number($("ep-prazo").value) : null,
         responsavel_id: $("ep-responsavel").value ? Number($("ep-responsavel").value) : null,
         observacoes: $("ep-observacoes").value.trim() || null,
+        numero_ordem: $("ep-numero-ordem").value.trim() || null,
+        renavam: $("ep-renavam").value.trim() || null,
+        empresa_cnpj: $("ep-empresa-cnpj").value.trim() || null,
       }),
     });
     fecharModal("modal-editar-processo");
@@ -203,18 +209,43 @@ $("form-editar-processo").addEventListener("submit", async (e) => {
   }
 });
 
+let lotesCarregados = [];
 async function carregarLotesFormulario() {
   try {
-    const lotes = await api("/lotes");
-    const sel = $("sel-lote-formulario");
-    sel.innerHTML = lotes.length
-      ? lotes.map((l) => `<option value="${l.id}">${l.nome} (${l.qtd_processos})</option>`).join("")
+    lotesCarregados = await api("/lotes");
+    const sel = $("sel-lote-acoes");
+    sel.innerHTML = lotesCarregados.length
+      ? lotesCarregados.map((l) => `<option value="${l.id}">${l.nome} (${l.qtd_processos})</option>`).join("")
       : `<option value="">nenhum lote</option>`;
+    renderEtapasDoLoteSelecionado();
   } catch { /* quem não é admin/operador ainda vê a lista de processos normalmente */ }
 }
 
+function renderEtapasDoLoteSelecionado() {
+  const lote = lotesCarregados.find((l) => String(l.id) === $("sel-lote-acoes").value);
+  const opcoes = (lote && ETAPAS[lote.tipo_servico]) || [];
+  $("sel-lote-etapa").innerHTML = opcoes.length
+    ? opcoes.map((e) => `<option>${e}</option>`).join("")
+    : `<option value="">—</option>`;
+}
+$("sel-lote-acoes").addEventListener("change", renderEtapasDoLoteSelecionado);
+
+$("btn-etapa-lote").onclick = async () => {
+  const loteId = $("sel-lote-acoes").value;
+  const etapa = $("sel-lote-etapa").value;
+  if (!loteId || !etapa) { alert("Selecione um lote e uma etapa."); return; }
+  const lote = lotesCarregados.find((l) => String(l.id) === loteId);
+  if (!confirm(`Mudar a etapa de todos os processos do lote "${lote?.nome}" para "${etapa}"?`)) return;
+  try {
+    const r = await api(`/processos/lote/${loteId}/etapa`, { method: "PATCH", body: JSON.stringify({ etapa }) });
+    alert(`${r.atualizados} processo(s) atualizado(s).`);
+    await carregar();
+    await carregarAlertaExigencia();
+  } catch (e) { alert(e.message); }
+};
+
 $("btn-formulario-lote").onclick = async () => {
-  const loteId = $("sel-lote-formulario").value;
+  const loteId = $("sel-lote-acoes").value;
   if (!loteId) { alert("Não há lote selecionado."); return; }
   const r = await fetch(API + `/lotes/${loteId}/formulario.docx`, { headers: { Authorization: "Bearer " + token } });
   if (!r.ok) { alert((await r.json().catch(() => ({}))).detail || "Não foi possível gerar o formulário."); return; }

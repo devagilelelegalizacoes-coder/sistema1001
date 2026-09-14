@@ -55,6 +55,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .stat.parado b{color:var(--parado)}
 
 .barra{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.barra-lote{justify-content:flex-start;align-items:center;background:var(--surface);
+  border-radius:10px;padding:8px 14px;box-shadow:var(--sombra)}
+.barra-lote select{border:1px solid var(--line);background:var(--bg);color:var(--ink);
+  border-radius:7px;padding:6px 10px;font-size:13px;font-family:inherit}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:20px;
   padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:500}

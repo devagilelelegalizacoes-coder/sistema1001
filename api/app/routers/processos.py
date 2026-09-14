@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..db import get_db
 from ..models import Anexo, Auditoria, Empresa, Lote, Processo, Usuario, Veiculo
 from ..regras import ETAPAS, PRAZO_PADRAO, Status, TipoServico, calcular_status
-from ..schemas import ProcessoAtualizar, ProcessoCriar, ProcessoOut
+from ..schemas import EtapaEmLote, ProcessoAtualizar, ProcessoCriar, ProcessoOut
 from ..seguranca import exige_papel, usuario_atual
 
 router = APIRouter(prefix="/processos", tags=["processos"])
@@ -124,6 +124,9 @@ def criar(
     return _com_empresa(db, p)
 
 
+_SEM_VALOR = object()   # distingue "campo não veio no PATCH" de "veio como null/vazio"
+
+
 @router.patch("/{processo_id}", response_model=ProcessoOut)
 def atualizar(
     processo_id: int,
@@ -135,16 +138,61 @@ def atualizar(
     if not p:
         raise HTTPException(404, "Processo não encontrado")
 
-    antes = {"etapa": p.etapa, "exigencia": p.exigencia, "prazo_dias": p.prazo_dias}
-    for campo, valor in dados.model_dump(exclude_unset=True).items():
+    campos = dados.model_dump(exclude_unset=True)
+    # não são colunas de Processo — número de ordem/renavam são do veículo,
+    # e empresa_cnpj resolve pra empresa_id. A placa não se corrige por aqui:
+    # é a chave que casa com o DETRAN, então trocar tem que ser deliberado.
+    numero_ordem = campos.pop("numero_ordem", _SEM_VALOR)
+    renavam = campos.pop("renavam", _SEM_VALOR)
+    empresa_cnpj = campos.pop("empresa_cnpj", _SEM_VALOR)
+
+    antes = {"etapa": p.etapa, "exigencia": p.exigencia, "prazo_dias": p.prazo_dias,
+             "numero_ordem": p.veiculo.numero_ordem, "renavam": p.veiculo.renavam,
+             "empresa_id": p.empresa_id}
+
+    for campo, valor in campos.items():
         setattr(p, campo, valor)
-    depois = {"etapa": p.etapa, "exigencia": p.exigencia, "prazo_dias": p.prazo_dias}
+
+    if numero_ordem is not _SEM_VALOR:
+        p.veiculo.numero_ordem = numero_ordem or None
+    if renavam is not _SEM_VALOR:
+        p.veiculo.renavam = renavam or None
+    if empresa_cnpj not in (_SEM_VALOR, None, ""):
+        empresa = db.scalar(select(Empresa).where(Empresa.cnpj == empresa_cnpj))
+        if not empresa:
+            raise HTTPException(400, f"Empresa {empresa_cnpj} não cadastrada")
+        p.empresa_id = empresa.id
+
+    depois = {"etapa": p.etapa, "exigencia": p.exigencia, "prazo_dias": p.prazo_dias,
+              "numero_ordem": p.veiculo.numero_ordem, "renavam": p.veiculo.renavam,
+              "empresa_id": p.empresa_id}
 
     db.add(Auditoria(usuario_id=usuario.id, entidade="processo", entidade_id=p.id,
                      acao="update", antes=antes, depois=depois))
     db.commit()
     db.refresh(p)
     return _com_empresa(db, p)
+
+
+@router.patch("/lote/{lote_id}/etapa")
+def mudar_etapa_em_lote(
+    lote_id: int,
+    dados: EtapaEmLote,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exige_papel("admin", "operador", "despachante")),
+):
+    """Move todos os processos de um lote pra mesma etapa de uma vez —
+    é o que acontece de verdade quando a equipe volante termina a vistoria
+    de um lote inteiro no mesmo dia."""
+    processos = db.scalars(select(Processo).where(Processo.lote_id == lote_id)).all()
+    if not processos:
+        raise HTTPException(404, "Lote sem processos")
+    for p in processos:
+        db.add(Auditoria(usuario_id=usuario.id, entidade="processo", entidade_id=p.id,
+                         acao="update_lote", antes={"etapa": p.etapa}, depois={"etapa": dados.etapa}))
+        p.etapa = dados.etapa
+    db.commit()
+    return {"lote_id": lote_id, "atualizados": len(processos), "etapa": dados.etapa}
 
 
 def _com_empresa(db: Session, p: Processo) -> ProcessoOut:

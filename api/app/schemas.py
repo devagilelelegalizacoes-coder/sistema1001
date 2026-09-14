@@ -42,6 +42,14 @@ class ProcessoAtualizar(BaseModel):
     responsavel_id: int | None = None
     observacoes: str | None = None
     prazo_dias: int | None = None
+    # dados do veículo/empresa — corrigem um cadastro feito errado, não trocam a placa
+    numero_ordem: str | None = None
+    renavam: str | None = None
+    empresa_cnpj: str | None = None
+
+
+class EtapaEmLote(BaseModel):
+    etapa: str
 
 
 class ProcessoOut(BaseModel):
