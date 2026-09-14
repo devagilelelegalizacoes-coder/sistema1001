@@ -259,6 +259,19 @@ $("btn-etapa-lote").onclick = async () => {
   } catch (e) { alert(e.message); }
 };
 
+$("btn-arquivar-lote").onclick = async () => {
+  const loteId = $("sel-lote-acoes").value;
+  if (!loteId) { alert("Selecione um lote."); return; }
+  const lote = lotesCarregados.find((l) => String(l.id) === loteId);
+  if (!confirm(`Arquivar os processos concluídos do lote "${lote?.nome}"? Os que ainda não terminaram ficam de fora.`)) return;
+  try {
+    const r = await api(`/processos/lote/${loteId}/arquivar`, { method: "POST" });
+    alert(`${r.arquivados} processo(s) arquivado(s).` + (r.ignorados ? ` ${r.ignorados} ainda não concluído(s), ficaram de fora.` : ""));
+    await carregar();
+    await carregarLotesFormulario();
+  } catch (e) { alert(e.message); }
+};
+
 $("btn-formulario-lote").onclick = async () => {
   const loteId = $("sel-lote-acoes").value;
   if (!loteId) { alert("Não há lote selecionado."); return; }

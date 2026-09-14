@@ -235,6 +235,33 @@ def mudar_etapa_em_lote(
     return {"lote_id": lote_id, "atualizados": len(processos), "etapa": dados.etapa}
 
 
+@router.post("/lote/{lote_id}/arquivar")
+def arquivar_lote(
+    lote_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exige_papel("admin", "operador", "despachante")),
+):
+    """Arquiva de uma vez todo processo do lote que já estiver concluído.
+    O que ainda não terminou fica de fora — não é ignorado, é contado
+    separado, pra quem clicou saber que sobrou algo pra fechar ainda."""
+    processos = db.scalars(select(Processo).where(Processo.lote_id == lote_id)).all()
+    if not processos:
+        raise HTTPException(404, "Lote sem processos")
+    arquivados = 0
+    ignorados = 0
+    for p in processos:
+        if p.etapa != ETAPA_CONCLUIDO or p.arquivado_em:
+            ignorados += 1
+            continue
+        p.arquivado_em = datetime.now(timezone.utc)
+        db.add(Auditoria(usuario_id=usuario.id, entidade="processo", entidade_id=p.id,
+                         acao="arquivar_lote", antes={"arquivado_em": None},
+                         depois={"arquivado_em": p.arquivado_em.isoformat()}))
+        arquivados += 1
+    db.commit()
+    return {"lote_id": lote_id, "arquivados": arquivados, "ignorados": ignorados}
+
+
 def _com_empresa(db: Session, p: Processo) -> ProcessoOut:
     hoje = date.today()
     empresa = db.get(Empresa, p.empresa_id)
