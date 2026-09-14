@@ -1,7 +1,14 @@
-# HTTPS automático. Troque os domínios e o Caddy cuida do certificado sozinho.
-# Para rodar local, use :80 no lugar do domínio.
+# Roda atrás de outro proxy (EasyPanel/Traefik, ou qualquer reverse proxy
+# que já cuide do domínio público e do certificado) — por isso "http://":
+# o Caddy aqui nunca tenta emitir certificado sozinho, só serve HTTP puro
+# na rede interna. Quem expõe pra internet e termina o HTTPS é a camada
+# da frente.
+#
+# Pra rodar num VPS nu, sem nada na frente, e deixar o Caddy emitir
+# Let's Encrypt sozinho: troque "http://{$DOMINIO:localhost}" por só
+# "{$DOMINIO}" (com o domínio real, sem "http://").
 
-{$DOMINIO:localhost} {
+http://{$DOMINIO:localhost} {
 	handle /api/* {
 		uri strip_prefix /api
 		reverse_proxy api:8000
@@ -15,6 +22,6 @@
 	encode gzip
 }
 
-{$N8N_HOST:n8n.localhost} {
+http://{$N8N_HOST:n8n.localhost} {
 	reverse_proxy n8n:5678
 }

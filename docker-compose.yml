@@ -68,7 +68,10 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports: ["80:80", "443:443"]
+    # só HTTP: o Caddy não emite certificado sozinho por padrão (ver Caddyfile).
+    # Rodando num VPS nu com domínio real e sem outro proxy na frente,
+    # troque para ["80:80", "443:443"] e mude o Caddyfile de volta.
+    ports: ["80:80"]
     environment:
       DOMINIO: ${DOMINIO:-localhost}
       N8N_HOST: ${N8N_HOST:-n8n.localhost}
