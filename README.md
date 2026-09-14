@@ -33,10 +33,49 @@ os domínios reais antes de executar o Compose.
 
 ## Implantar no EasyPanel
 
-O EasyPanel deste projeto cria os serviços um a um (App a partir de
-Dockerfile), não importa o `docker-compose.yml` inteiro de uma vez. Dentro
-de um mesmo projeto (pra tudo cair na mesma rede interna e os serviços se
-enxergarem pelo nome):
+### Pelo Compose (recomendado — um deploy só)
+
+Se o seu EasyPanel tem o card **"Compose"** ao adicionar um serviço (junto
+com App/Postgres/Redis), é o caminho mais simples: ele sobe a stack inteira
+(`docker-compose.yml` deste repositório) de uma vez, com todos os serviços
+já se enxergando pelo nome, igual roda local.
+
+1. **+ Adicionar serviço → Compose**, fonte Github, mesmo repositório,
+   ramo `master`.
+2. Na aba de **variáveis de ambiente do serviço Compose** (não é a de cada
+   container — é uma só, no nível do projeto Compose), defina o que o
+   `docker-compose.yml` espera via `${...}`:
+
+   ```
+   DB_SENHA=escolha-uma-senha-forte
+   JWT_SECRET=9c880aeceab34b727530b18b98ccf7a6f5c0378c00184190b41310d641820388
+   N8N_USUARIO=admin
+   N8N_SENHA=escolha-outra-senha-forte
+   DOMINIO=SEU-DOMINIO-OU-SUBDOMINIO-AQUI
+   N8N_HOST=SEU-N8N-DOMINIO-OU-SUBDOMINIO-AQUI
+   ```
+
+   **`DOMINIO` e `N8N_HOST` têm que ser exatamente o hostname público** que
+   vai apontar pra cá (ex.: `sistema1001.seudominio.com`, ou o
+   `algumacoisa.easypanel.host` que o EasyPanel gerar) — é contra esse
+   valor que o Caddy decide se responde a requisição. Errar isso é a causa
+   mais comum de página em branco: o Caddy recebe a requisição, mas o Host
+   não bate com o que ele espera e ele não sabe o que responder.
+
+   `JWT_SECRET` acima é só um exemplo gerado agora — pode usar, mas o ideal
+   é gerar o seu: `openssl rand -hex 32`.
+
+3. Depois do deploy, na aba **Domínios**: aponte seu domínio principal pro
+   serviço/container `caddy`, porta `80`. Se for usar n8n com domínio
+   próprio, pode apontar outro domínio direto pro container `n8n`, porta
+   `5678` (mais simples que passar pelo Caddy) — ou usar o `N8N_HOST`
+   configurado acima e apontar pro `caddy` também, porta `80`.
+
+### Como serviços individuais (App por Dockerfile)
+
+Se não tiver Compose disponível, dá pra recriar a stack como serviços
+separados dentro de um mesmo projeto (pra caírem na mesma rede interna e
+se enxergarem pelo nome):
 
 | Serviço | Como criar | Configuração |
 |---|---|---|
@@ -45,7 +84,7 @@ enxergarem pelo nome):
 | `api` | App → Github → Caminho de Build `/api` | Env: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET` (ver `.env.example`). Aplica migração sozinho ao subir. |
 | `worker` | App → Github → Caminho de Build `/api` (mesmo repo) | Mesmas envs da `api`, **e sobrescreve o "Start Command"** para `celery -A app.tarefas worker -l info --concurrency=2` |
 | `n8n` | Template n8n do próprio EasyPanel (ou App com a imagem `n8nio/n8n`) | — |
-| `web` | App → Github → Caminho de Build `/` (raiz) | Sem env — o Dockerfile da raiz já empacota o Caddy + o front |
+| `web` | App → Github → Caminho de Build `/` (raiz) | **`DOMINIO`** = o hostname público exato deste serviço (ex.: o `algumacoisa.easypanel.host` que o EasyPanel gerou, ou seu domínio próprio). Sem isso o Caddy fica esperando `localhost` e a página fica em branco. |
 
 **Nomeie os serviços exatamente `api` e `n8n`** (ou ajuste o `Caddyfile`):
 ele faz `reverse_proxy api:8000` e `reverse_proxy n8n:5678` usando esses
