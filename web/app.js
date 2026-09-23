@@ -1,6 +1,6 @@
 /* Front mínimo do Sistema 1001. Sem framework: o que ele faz é listar,
    filtrar, cadastrar e mostrar o status — o resto da regra vive na API. */
-
+ 
 const API = window.API_URL || "/api";
 const ROTULO = {
   no_prazo: "No prazo", prazo_proximo: "Prazo próximo", atrasado: "Atrasado",
@@ -22,15 +22,15 @@ const ETAPAS = {
   avulso: ["Recebido", "Em análise", "Em andamento", "Exigência aberta",
     "Faltou / parado", "Concluído"],
 };
-
+ 
 let token = localStorage.getItem("token1001") || "";
 let papelAtual = "";
 let filtroTipo = "";
 let processos = [];
-
+ 
 const $ = (id) => document.getElementById(id);
 const brl = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
+ 
 async function api(caminho, opcoes = {}) {
   const r = await fetch(API + caminho, {
     ...opcoes,
@@ -41,12 +41,12 @@ async function api(caminho, opcoes = {}) {
   if (r.status === 204) return null;
   return r.json();
 }
-
+ 
 function sair() {
   token = ""; localStorage.removeItem("token1001");
   $("tela-app").hidden = true; $("tela-login").hidden = false; $("usuario").innerHTML = "";
 }
-
+ 
 async function entrar() {
   const erro = $("erro-login");
   erro.hidden = true;
@@ -64,7 +64,7 @@ async function entrar() {
     erro.textContent = e.message; erro.hidden = false;
   }
 }
-
+ 
 async function iniciar() {
   let eu;
   try { eu = await api("/auth/eu"); } catch { sair(); return; }
@@ -80,7 +80,7 @@ async function iniciar() {
   await carregarAlertaExigencia();
   await carregarLotesFormulario();
 }
-
+ 
 /* alerta de documentos em exigência — some por conta própria quando não há nenhum */
 async function carregarAlertaExigencia() {
   const banner = $("alerta-exigencia-banner");
@@ -92,7 +92,7 @@ async function carregarAlertaExigencia() {
       alertas.exigencias.map((e) => `<b>${e.placa || "s/placa"}</b>${e.exigencia ? ` (${e.exigencia})` : ""}`).join(", ");
   } catch { banner.hidden = true; }
 }
-
+ 
 /* ---------------- abas ---------------- */
 async function carregarAba(nome) {
   if (nome === "processos") {
@@ -104,7 +104,7 @@ async function carregarAba(nome) {
   if (nome === "relatorios") await carregarRelatorios();
   if (nome === "usuarios") await carregarUsuarios();
 }
-
+ 
 document.querySelectorAll(".aba").forEach((btn) => {
   btn.onclick = async () => {
     if (btn.hidden) return;
@@ -114,7 +114,7 @@ document.querySelectorAll(".aba").forEach((btn) => {
     await carregarAba(btn.dataset.aba);
   };
 });
-
+ 
 /* ---------------- processos ---------------- */
 function renderFiltros() {
   $("filtros").innerHTML = TIPOS.map(
@@ -124,7 +124,7 @@ function renderFiltros() {
     b.onclick = () => { filtroTipo = b.dataset.tipo; renderFiltros(); carregar(); };
   });
 }
-
+ 
 async function carregar() {
   const [resumo, lista] = await Promise.all([
     api("/processos/resumo"),
@@ -137,7 +137,7 @@ async function carregar() {
   processos = lista;
   renderTabela();
 }
-
+ 
 function renderTabela() {
   const busca = $("busca").value.trim().toUpperCase();
   const linhas = processos.filter((p) => !busca
@@ -161,9 +161,9 @@ function renderTabela() {
     tr.onclick = () => abrirEdicaoProcesso(Number(tr.dataset.id));
   });
 }
-
+ 
 const formatarData = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
-
+ 
 function abrirEdicaoProcesso(id) {
   const p = processos.find((x) => x.id === id);
   if (!p) return;
@@ -183,7 +183,7 @@ function abrirEdicaoProcesso(id) {
   $("btn-arquivar-processo").dataset.id = p.id;
   abrirModal("modal-editar-processo");
 }
-
+ 
 $("btn-arquivar-processo").onclick = async () => {
   const id = $("btn-arquivar-processo").dataset.id;
   if (!confirm("Arquivar este processo? Ele sai da tela principal e vai pra aba Arquivados.")) return;
@@ -193,7 +193,7 @@ $("btn-arquivar-processo").onclick = async () => {
     await carregar();
   } catch (e) { alert(e.message); }
 };
-
+ 
 // o status "exigência" é calculado só pela etapa (regras.py), não pelo texto —
 // então preencher a exigência sem trocar a etapa fazia o processo "sumir" dos
 // alertas. Aqui a etapa acompanha automaticamente, a não ser que já esteja
@@ -204,7 +204,7 @@ $("ep-exigencia").addEventListener("input", () => {
     etapa.value = "Exigência aberta";
   }
 });
-
+ 
 $("form-editar-processo").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-editar-processo");
@@ -230,7 +230,7 @@ $("form-editar-processo").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
-
+ 
 let lotesCarregados = [];
 async function carregarLotesFormulario() {
   try {
@@ -242,7 +242,7 @@ async function carregarLotesFormulario() {
     renderEtapasDoLoteSelecionado();
   } catch { /* quem não é admin/operador ainda vê a lista de processos normalmente */ }
 }
-
+ 
 function renderEtapasDoLoteSelecionado() {
   const lote = lotesCarregados.find((l) => String(l.id) === $("sel-lote-acoes").value);
   const opcoes = (lote && ETAPAS[lote.tipo_servico]) || [];
@@ -251,7 +251,7 @@ function renderEtapasDoLoteSelecionado() {
     : `<option value="">—</option>`;
 }
 $("sel-lote-acoes").addEventListener("change", renderEtapasDoLoteSelecionado);
-
+ 
 $("btn-etapa-lote").onclick = async () => {
   const loteId = $("sel-lote-acoes").value;
   const etapa = $("sel-lote-etapa").value;
@@ -265,7 +265,7 @@ $("btn-etapa-lote").onclick = async () => {
     await carregarAlertaExigencia();
   } catch (e) { alert(e.message); }
 };
-
+ 
 $("btn-arquivar-lote").onclick = async () => {
   const loteId = $("sel-lote-acoes").value;
   if (!loteId) { alert("Selecione um lote."); return; }
@@ -278,7 +278,7 @@ $("btn-arquivar-lote").onclick = async () => {
     await carregarLotesFormulario();
   } catch (e) { alert(e.message); }
 };
-
+ 
 $("btn-formulario-lote").onclick = async () => {
   const loteId = $("sel-lote-acoes").value;
   if (!loteId) { alert("Não há lote selecionado."); return; }
@@ -291,7 +291,7 @@ $("btn-formulario-lote").onclick = async () => {
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 };
-
+ 
 $("btn-exportar").onclick = async () => {
   const r = await fetch(API + "/processos/exportar.xlsx", { headers: { Authorization: "Bearer " + token } });
   if (!r.ok) { alert("Não foi possível exportar."); return; }
@@ -302,14 +302,14 @@ $("btn-exportar").onclick = async () => {
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 };
-
+ 
 /* ---------------- arquivados ---------------- */
 let processosArquivados = [];
 async function carregarArquivados() {
   processosArquivados = await api("/processos?arquivado=true");
   renderTabelaArquivados();
 }
-
+ 
 function renderTabelaArquivados() {
   const busca = $("busca-arquivados").value.trim().toUpperCase();
   const linhas = processosArquivados.filter((p) => !busca
@@ -334,7 +334,7 @@ function renderTabelaArquivados() {
   });
 }
 $("busca-arquivados").addEventListener("input", renderTabelaArquivados);
-
+ 
 /* ---------------- avisos ---------------- */
 async function carregarAvisos() {
   const somenteNaoLidos = $("chk-nao-lidos").checked;
@@ -353,9 +353,19 @@ async function carregarAvisos() {
   });
 }
 $("chk-nao-lidos").addEventListener("change", carregarAvisos);
-
+ 
 /* ---------------- notas (admin) ---------------- */
 async function carregarFaturaveis() {
+  // a atualização automática redesenha a tabela: guarda o que o usuário já
+  // marcou/digitou para restaurar depois (senão os checkboxes "desmarcam sozinhos")
+  const estado = {};
+  document.querySelectorAll(".chk-fat").forEach((c) => {
+    estado[c.value] = {
+      marcado: c.checked,
+      despesa: document.querySelector(`.in-despesa[data-id="${c.value}"]`)?.value,
+      valor: document.querySelector(`.in-valor[data-id="${c.value}"]`)?.value,
+    };
+  });
   const lista = await api("/notas/faturaveis");
   $("faturaveis-vazio").hidden = lista.length > 0;
   $("wrap-faturaveis").hidden = lista.length === 0;
@@ -369,8 +379,15 @@ async function carregarFaturaveis() {
       <td class="num"><input type="number" step="0.01" min="0" class="in-despesa" data-id="${p.processo_id}" value="0" style="width:90px"></td>
       <td class="num"><input type="number" step="0.01" min="0" class="in-valor" data-id="${p.processo_id}" value="0" style="width:100px"></td>
     </tr>`).join("");
+  for (const [id, s] of Object.entries(estado)) {
+    const chk = document.querySelector(`.chk-fat[value="${id}"]`);
+    if (!chk) continue;   // processo saiu da lista (já foi faturado)
+    chk.checked = s.marcado;
+    if (s.despesa != null) document.querySelector(`.in-despesa[data-id="${id}"]`).value = s.despesa;
+    if (s.valor != null) document.querySelector(`.in-valor[data-id="${id}"]`).value = s.valor;
+  }
 }
-
+ 
 $("form-gerar-nota").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-gerar-nota");
@@ -398,7 +415,7 @@ $("form-gerar-nota").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
-
+ 
 let notas = [];
 async function carregarNotas() {
   notas = await api("/notas");
@@ -421,7 +438,7 @@ async function carregarNotas() {
     tr.onclick = () => abrirEdicaoNota(Number(tr.dataset.id));
   });
 }
-
+ 
 function abrirEdicaoNota(id) {
   const n = notas.find((x) => x.id === id);
   if (!n) return;
@@ -434,7 +451,7 @@ function abrirEdicaoNota(id) {
   $("en-destinatario").value = n.destinatario || "";
   abrirModal("modal-editar-nota");
 }
-
+ 
 $("form-editar-nota").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-editar-nota");
@@ -456,7 +473,7 @@ $("form-editar-nota").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
-
+ 
 $("btn-ver-resumo").onclick = async () => {
   try {
     const r = await api(`/notas/${$("en-id").value}/resumo`);
@@ -465,7 +482,7 @@ $("btn-ver-resumo").onclick = async () => {
     abrirModal("modal-resumo-nota");
   } catch (e) { alert(e.message); }
 };
-
+ 
 $("btn-enviar-nota").onclick = async () => {
   try {
     const r = await api(`/notas/${$("en-id").value}/enviar`, { method: "POST" });
@@ -473,11 +490,11 @@ $("btn-enviar-nota").onclick = async () => {
     await carregarNotas();
   } catch (e) { alert(e.message); }
 };
-
+ 
 /* ---------------- relatórios (admin) ---------------- */
 async function carregarRelatorios() {
   const mensal = await api("/relatorios/mensal");
-
+ 
   // lucro real = soma de todas as notas, não só do mês — é o que sobra pro escritório
   // imposto e lucro líquido já vêm calculados da API (regras.py: 6% sobre o valor)
   const total = mensal.reduce((acc, m) => ({
@@ -493,7 +510,7 @@ async function carregarRelatorios() {
     <div class="stat"><b>${brl(total.imposto)}</b><span>Imposto (6% do valor)</span></div>
     <div class="stat ${total.lucro_liquido >= 0 ? "no_prazo" : "atrasado"}"><b>${brl(total.lucro_liquido)}</b><span>Lucro real (líquido)</span></div>
     <div class="stat"><b>${brl(total.recebido)}</b><span>Já recebido (notas pagas)</span></div>`;
-
+ 
   $("linhas-mensal").innerHTML = mensal.map((m) => `
     <tr>
       <td class="mono">${m.mes}</td>
@@ -505,7 +522,7 @@ async function carregarRelatorios() {
       <td class="num mono">${brl(m.lucro_liquido)}</td>
       <td class="num mono">${brl(m.recebido)}</td>
     </tr>`).join("");
-
+ 
   const alertas = await api("/relatorios/alertas");
   $("alerta-atrasados").innerHTML = alertas.atrasados
     .map((a) => `<li>${a.placa || "—"} · ${a.tipo_servico} · ${formatarData(a.data_limite)} (${a.dias}d)</li>`).join("");
@@ -516,10 +533,10 @@ async function carregarRelatorios() {
   $("alerta-encaixes").innerHTML = alertas.encaixe_fechando
     .map((e) => `<li>${e.lote} · vistoria ${formatarData(e.data_vistoria)} · fecha ${formatarData(e.fecha_em)}</li>`).join("");
 }
-
+ 
 /* ---------------- usuários (admin) ---------------- */
 const PAPEL_ROTULO = { admin: "Administrador", operador: "Operador", despachante: "Despachante", cliente: "Cliente" };
-
+ 
 async function carregarUsuarios() {
   const lista = await api("/usuarios");
   $("linhas-usuarios").innerHTML = lista.map((u) => `
@@ -545,9 +562,9 @@ async function carregarUsuarios() {
     };
   });
 }
-
+ 
 $("btn-novo-usuario").onclick = () => { $("form-usuario").reset(); abrirModal("modal-usuario"); };
-
+ 
 $("form-usuario").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-usuario");
@@ -570,26 +587,26 @@ $("form-usuario").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
-
+ 
 /* ---------------- modais genéricos ---------------- */
 function abrirModal(id) {
   document.querySelectorAll(`#${id} .erro`).forEach((e) => (e.hidden = true));
   $(id).hidden = false;
 }
 function fecharModal(id) { $(id).hidden = true; }
-
+ 
 document.querySelectorAll(".modal-fundo").forEach((fundo) => {
   fundo.addEventListener("click", (e) => { if (e.target === fundo) fundo.hidden = true; });
   fundo.querySelectorAll("[data-fechar]").forEach((b) => (b.onclick = () => (fundo.hidden = true)));
 });
-
+ 
 $("btn-novo-processo").onclick = () => {
   $("form-processo").reset();
   $("p-data-recebimento").valueAsDate = new Date();
   abrirModal("modal-processo");
 };
 $("btn-novo-aviso").onclick = () => { $("form-aviso").reset(); abrirModal("modal-aviso"); };
-
+ 
 $("form-processo").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-processo");
@@ -616,7 +633,7 @@ $("form-processo").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
-
+ 
 $("form-aviso").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-aviso");
@@ -636,32 +653,37 @@ $("form-aviso").addEventListener("submit", async (e) => {
     erro.textContent = e2.message; erro.hidden = false;
   }
 });
-
+ 
 $("btn-entrar").onclick = entrar;
 $("in-senha").addEventListener("keydown", (e) => { if (e.key === "Enter") entrar(); });
 $("busca").addEventListener("input", renderTabela);
-
+ 
 /* ---------------- atualização automática ---------------- */
 // sem isto, um cadastro feito por outra pessoa só aparecia depois de F5.
 // Atualiza só a aba visível, e pula enquanto algum formulário está aberto
 // (senão apagaria o que a pessoa está digitando, ex.: valores da nota).
 const INTERVALO_ATUALIZACAO_MS = 20000;
-
+ 
 function podeAtualizarAgora() {
   if (!token || $("tela-app").hidden) return false;
   if (document.hidden) return false;
   if (document.querySelector(".modal-fundo:not([hidden])")) return false;
+  // não redesenha enquanto a pessoa está digitando num campo (perderia o foco)
+  const foco = document.activeElement;
+  if (foco && foco !== $("busca") && foco.type !== "checkbox"
+      && ["INPUT", "TEXTAREA", "SELECT"].includes(foco.tagName)) return false;
   return true;
 }
-
+ 
 async function atualizarAbaAtiva() {
   if (!podeAtualizarAgora()) return;
   const abaAtiva = document.querySelector(".aba.ativo");
   if (abaAtiva) await carregarAba(abaAtiva.dataset.aba);
 }
-
+ 
 setInterval(atualizarAbaAtiva, INTERVALO_ATUALIZACAO_MS);
 document.addEventListener("visibilitychange", atualizarAbaAtiva);
 window.addEventListener("focus", atualizarAbaAtiva);
-
+ 
 token ? iniciar() : (($("tela-login").hidden = false));
+ 
