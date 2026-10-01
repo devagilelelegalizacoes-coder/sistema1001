@@ -439,7 +439,12 @@ async function carregarNotas() {
   });
 }
  
-function abrirEdicaoNota(id) {
+// itens em edição no modal da nota: começa com os já lançados na nota,
+// depois pode ganhar candidatos (processos concluídos ainda não faturados)
+let itensEdicaoNota = [];
+let mostrarTodosNaEdicaoNota = false;
+
+async function abrirEdicaoNota(id) {
   const n = notas.find((x) => x.id === id);
   if (!n) return;
   $("en-id").value = n.id;
@@ -449,13 +454,101 @@ function abrirEdicaoNota(id) {
   $("en-emissao").value = n.data_emissao || "";
   $("en-pagamento").value = n.data_pagamento || "";
   $("en-destinatario").value = n.destinatario || "";
+  itensEdicaoNota = n.itens.map((i) => ({ ...i }));
+  mostrarTodosNaEdicaoNota = false;
   abrirModal("modal-editar-nota");
+  await renderVeiculosDaNota();
 }
- 
+
+async function renderVeiculosDaNota() {
+  const notaId = Number($("en-id").value);
+  const candidatos = await api(`/notas/faturaveis?excluir_nota_id=${notaId}`);
+  const idsNaNota = new Set(itensEdicaoNota.map((i) => i.processo_id));
+  let lista = candidatos.filter((c) => !idsNaNota.has(c.processo_id));
+  if (!mostrarTodosNaEdicaoNota) {
+    // além dos já concluídos (candidatos sempre são "Concluído"), aqui só
+    // restringe pra não poluir a tela com todo o backlog de uma vez
+    lista = lista.slice(0, 50);
+  }
+  const linhas = [];
+  itensEdicaoNota.forEach((it) => {
+    linhas.push({ processo_id: it.processo_id, placa: it.placa, numero_ordem: it.numero_ordem,
+      tipo_servico: it.tipo_servico, lote: it.lote, marcado: true,
+      despesa: it.despesa, valor_nota: it.valor_nota });
+  });
+  lista.forEach((c) => {
+    linhas.push({ ...c, marcado: false, despesa: 0, valor_nota: 0 });
+  });
+
+  $("en-lista-veiculos").innerHTML = linhas.map((l) => `
+    <div class="item-nota-linha ${l.marcado ? "marcado" : ""}">
+      <div class="item-nota-topo">
+        <label class="item-nota-check">
+          <input type="checkbox" class="en-chk-item" data-id="${l.processo_id}" ${l.marcado ? "checked" : ""}>
+          <span><b>${l.placa || "—"}</b>
+            ${l.numero_ordem ? ` <span class="muted mono">ordem ${l.numero_ordem}</span>` : ""}
+            <div class="muted" style="font-size:11.5px">${l.tipo_servico}${l.lote ? " · " + l.lote : ""}</div>
+          </span>
+        </label>
+        ${l.marcado ? `<button type="button" class="item-nota-remover" data-remover="${l.processo_id}" title="Tirar da nota">✕</button>` : ""}
+      </div>
+      ${l.marcado ? `
+      <div class="item-nota-valores">
+        <label>Despesa<input type="number" step="0.01" min="0" class="en-item-despesa" data-id="${l.processo_id}" value="${l.despesa}"></label>
+        <label>Valor da nota<input type="number" step="0.01" min="0" class="en-item-valor" data-id="${l.processo_id}" value="${l.valor_nota}"></label>
+      </div>` : ""}
+    </div>`).join("") || `<p class="hint">Nenhum veículo disponível.</p>`;
+
+  document.querySelectorAll(".en-chk-item").forEach((chk) => {
+    chk.onchange = async () => {
+      lerItensDoFormularioNota();
+      const id = Number(chk.getAttribute("data-id"));
+      if (chk.checked) {
+        const c = candidatos.find((x) => x.processo_id === id);
+        if (c) itensEdicaoNota.push({ ...c, despesa: 0, valor_nota: 0 });
+      } else {
+        itensEdicaoNota = itensEdicaoNota.filter((i) => i.processo_id !== id);
+      }
+      await renderVeiculosDaNota();
+    };
+  });
+  document.querySelectorAll("[data-remover]").forEach((btn) => {
+    btn.onclick = async () => {
+      lerItensDoFormularioNota();
+      const id = Number(btn.getAttribute("data-remover"));
+      itensEdicaoNota = itensEdicaoNota.filter((i) => i.processo_id !== id);
+      await renderVeiculosDaNota();
+    };
+  });
+  document.querySelectorAll(".en-item-despesa, .en-item-valor").forEach((inp) => {
+    inp.onchange = () => lerItensDoFormularioNota();
+  });
+}
+
+function lerItensDoFormularioNota() {
+  itensEdicaoNota.forEach((it) => {
+    const d = document.querySelector(`.en-item-despesa[data-id="${it.processo_id}"]`);
+    const v = document.querySelector(`.en-item-valor[data-id="${it.processo_id}"]`);
+    if (d) it.despesa = Number(d.value || 0);
+    if (v) it.valor_nota = Number(v.value || 0);
+  });
+}
+
+$("en-mostrar-todos").onclick = async () => {
+  lerItensDoFormularioNota();
+  mostrarTodosNaEdicaoNota = !mostrarTodosNaEdicaoNota;
+  $("en-mostrar-todos").textContent = mostrarTodosNaEdicaoNota ? "Só os 50 primeiros" : "Mostrar todos";
+  await renderVeiculosDaNota();
+};
+
 $("form-editar-nota").addEventListener("submit", async (e) => {
   e.preventDefault();
   const erro = $("erro-editar-nota");
   erro.hidden = true;
+  lerItensDoFormularioNota();
+  if (!itensEdicaoNota.length) {
+    erro.textContent = "A nota precisa ter ao menos um veículo."; erro.hidden = false; return;
+  }
   try {
     await api(`/notas/${$("en-id").value}`, {
       method: "PATCH",
@@ -465,9 +558,13 @@ $("form-editar-nota").addEventListener("submit", async (e) => {
         data_emissao: $("en-emissao").value || null,
         data_pagamento: $("en-pagamento").value || null,
         destinatario: $("en-destinatario").value.trim() || null,
+        itens: itensEdicaoNota.map((i) => ({
+          processo_id: i.processo_id, despesa: i.despesa, valor_nota: i.valor_nota,
+        })),
       }),
     });
     fecharModal("modal-editar-nota");
+    await carregarFaturaveis();
     await carregarNotas();
   } catch (e2) {
     erro.textContent = e2.message; erro.hidden = false;
@@ -686,4 +783,4 @@ document.addEventListener("visibilitychange", atualizarAbaAtiva);
 window.addEventListener("focus", atualizarAbaAtiva);
  
 token ? iniciar() : (($("tela-login").hidden = false));
- 
+ 

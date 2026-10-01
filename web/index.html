@@ -284,7 +284,7 @@
 
 <!-- ============ MODAL: editar nota ============ -->
 <div id="modal-editar-nota" class="modal-fundo" hidden>
-  <form id="form-editar-nota" class="modal">
+  <form id="form-editar-nota" class="modal modal-larga">
     <h3>Nota <span id="en-referencia" class="muted"></span></h3>
     <p id="erro-editar-nota" class="erro" hidden></p>
     <input type="hidden" id="en-id">
@@ -304,6 +304,16 @@
       <label>Data de pagamento<input id="en-pagamento" type="date"></label>
     </div>
     <label>Destinatário (e-mail)<input id="en-destinatario" type="email"></label>
+
+    <div class="secao-veiculos-nota">
+      <div class="barra-veiculos-nota">
+        <span class="rotulo-secao">Veículos da nota</span>
+        <button type="button" class="botao-sec botao-mini" id="en-mostrar-todos">Mostrar todos</button>
+      </div>
+      <p class="hint">Marque para incluir, clique no ✕ para tirar um veículo já lançado. Depois clique em Salvar.</p>
+      <div id="en-lista-veiculos" class="lista-itens-nota"></div>
+    </div>
+
     <div class="modal-acoes">
       <button type="button" class="botao botao-sec" id="btn-ver-resumo">Ver resumo do e-mail</button>
       <button type="button" class="botao botao-sec" id="btn-enviar-nota">Enviar por e-mail</button>
