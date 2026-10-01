@@ -97,6 +97,16 @@ class NotaAtualizar(BaseModel):
     itens: list[NotaItemIn] | None = None
 
 
+class NotaItemOut(BaseModel):
+    processo_id: int
+    placa: str | None = None
+    numero_ordem: str | None = None
+    tipo_servico: str
+    lote: str | None = None
+    despesa: Decimal
+    valor_nota: Decimal
+
+
 class NotaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -113,6 +123,7 @@ class NotaOut(BaseModel):
     diferenca: Decimal
     imposto: Decimal
     lucro_liquido: Decimal
+    itens: list[NotaItemOut] = []
 
 
 class AvisoCriar(BaseModel):
