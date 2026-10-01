@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..db import get_db
 from ..models import Nota, NotaItem, Processo, Usuario
 from ..regras import totais_nota
-from ..schemas import NotaAtualizar, NotaCriar, NotaOut
+from ..schemas import NotaAtualizar, NotaCriar, NotaItemOut, NotaOut
 from ..seguranca import exige_papel
 
 # faturamento é papel de admin — o operador comum não vê valores
@@ -19,25 +19,46 @@ router = APIRouter(prefix="/notas", tags=["notas"],
 def _saida(n: Nota) -> NotaOut:
     ano = n.data_emissao.year if n.data_emissao else None
     t = totais_nota([{"despesa": i.despesa, "valor_nota": i.valor_nota} for i in n.itens], ano)
+    itens = [
+        NotaItemOut(
+            processo_id=i.processo_id,
+            placa=i.processo.veiculo.placa if i.processo and i.processo.veiculo else None,
+            numero_ordem=i.processo.veiculo.numero_ordem if i.processo and i.processo.veiculo else None,
+            tipo_servico=i.processo.tipo_servico if i.processo else "",
+            lote=i.processo.lote.nome if i.processo and i.processo.lote else None,
+            despesa=i.despesa, valor_nota=i.valor_nota,
+        )
+        for i in n.itens
+    ]
     return NotaOut(
         id=n.id, referencia=n.referencia, numero_nf=n.numero_nf, data_emissao=n.data_emissao,
         data_envio=n.data_envio, data_pagamento=n.data_pagamento, status=n.status,
         destinatario=n.destinatario, quantidade=t["quantidade"], despesas=t["despesas"],
         valor=t["valor"], diferenca=t["diferenca"],
-        imposto=t["imposto"], lucro_liquido=t["lucro_liquido"],
+        imposto=t["imposto"], lucro_liquido=t["lucro_liquido"], itens=itens,
     )
 
 
 @router.get("", response_model=list[NotaOut])
 def listar(db: Session = Depends(get_db)):
-    q = select(Nota).options(selectinload(Nota.itens)).order_by(Nota.criado_em.desc())
+    q = (select(Nota)
+         .options(selectinload(Nota.itens).selectinload(NotaItem.processo).selectinload(Processo.veiculo),
+                  selectinload(Nota.itens).selectinload(NotaItem.processo).selectinload(Processo.lote))
+         .order_by(Nota.criado_em.desc()))
     return [_saida(n) for n in db.scalars(q).all()]
 
 
 @router.get("/faturaveis")
-def faturaveis(db: Session = Depends(get_db)):
-    """Processos prontos e ainda não faturados — é a lista que o operador tica."""
+def faturaveis(excluir_nota_id: int | None = None, db: Session = Depends(get_db)):
+    """Processos prontos e ainda não faturados — é a lista que o operador tica.
+
+    `excluir_nota_id`: ao editar uma nota já existente, os veículos que já estão
+    NELA não contam como "usados em outra nota" — senão sumiriam da lista e não
+    daria pra tirar e recolocar um veículo na mesma nota.
+    """
     ja = select(NotaItem.processo_id)
+    if excluir_nota_id is not None:
+        ja = ja.where(NotaItem.nota_id != excluir_nota_id)
     q = (select(Processo)
          .options(selectinload(Processo.veiculo), selectinload(Processo.lote))
          .where(Processo.etapa == "Concluído", Processo.id.not_in(ja))
